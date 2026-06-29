@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI & API Connection Map (Figma Edition)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --sidebar: #2c2c2c;
+      --card-bg: #252526;
+      --card-hover: #2a2d2e;
+      --border: #3c3c3c;
+      --text: #cccccc;
+      --text-muted: #969696;
+      --primary: #0ea5e9;
+      --primary-glow: rgba(14, 165, 233, 0.15);
+      --secondary: #8b5cf6;
+      --get: #10b981;
+      --post: #3b82f6;
+      --put: #f59e0b;
+      --delete: #ef4444;
+      --brand: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      overflow: hidden;
+    }
+    
+    .app-container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+    
+    /* Left Sidebar */
+    .sidebar {
+      width: 280px;
+      background-color: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+    }
+    
+    .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+    .brand-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 16px; background: var(--brand); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+    
+    .project-loader { padding: 12px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.1); }
+    .input-sm { width: 100%; background: #1e1e1e; border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 8px; font-family: inherit; }
+    .input-sm:focus { outline: 1px solid var(--primary); border-color: transparent; }
+    
+    .btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 8px; border-radius: 4px; font-weight: 500; font-size: 12px; cursor: pointer; }
+    .btn-primary:hover { background: #0284c7; }
+    
+    /* Layers List */
+    .layers-panel { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .layer-group-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; padding: 8px 16px 4px; letter-spacing: 0.5px; }
+    .layer-item { padding: 6px 16px 6px 24px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .layer-item:hover { background: rgba(255,255,255,0.05); }
+    .layer-item.active { background: rgba(14, 165, 233, 0.15); color: #fff; }
+    
+    /* Center Canvas */
+    .canvas-container {
+      flex: 1; position: relative; background-color: #1e1e1e;
+      background-image: radial-gradient(#3c3c3c 1px, transparent 1px);
+      background-size: 24px 24px; background-position: -12px -12px;
+      overflow: hidden;
+    }
+    
+    .canvas-layer { position: absolute; top: 0; left: 0; width: 10000px; height: 10000px; transform-origin: 0 0; pointer-events: none; }
+    .canvas-content { pointer-events: auto; }
+    .svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    
+    /* Toolbar */
+    .canvas-toolbar {
+      position: absolute; top: 20px; left: 20px;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 6px; display: flex; align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 50; pointer-events: auto;
+    }
+    .toolbar-btn { background: transparent; border: none; color: var(--text); padding: 8px 12px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--border); font-family: inherit; display: flex; align-items: center; gap: 6px;}
+    .toolbar-btn:hover { background: rgba(255,255,255,0.05); }
+    .toolbar-btn:last-child { border-right: none; }
+    
+    /* Nodes */
+    .artboard {
+      position: absolute; background: #ffffff; /* White background like a real app */
+      border: 1px solid #ddd; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      border-radius: 24px; /* Phone notch roundness */
+      display: flex; flex-direction: column; width: 375px; /* standard iPhone width */
+      height: 812px; /* standard iPhone height */
+      overflow: hidden;
+    }
+    .artboard.dark-mode { background: #000; border: 1px solid #333; }
+    
+    .artboard-title { position: absolute; top: -28px; left: 0; font-size: 14px; color: #fff; font-weight: 600; white-space: nowrap; font-family: 'JetBrains Mono', monospace;}
+    
+    .artboard-content {
+      flex: 1; overflow-y: auto; padding: 24px 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    
+    /* Mock UI Elements */
+    .ui-container { display: flex; flex-direction: column; width: 100%; }
+    .ui-row { display: flex; flex-direction: row; gap: 8px; width: 100%; align-items: center;}
+    
+    .ui-text { font-family: 'Outfit', sans-serif; font-size: 16px; color: #111; word-wrap: break-word; }
+    .dark-mode .ui-text { color: #f1f1f1; }
+    
+    .ui-btn { 
+      background: #0ea5e9; color: #fff; text-align: center; padding: 14px; 
+      border-radius: 12px; font-weight: 600; font-size: 16px; 
+      position: relative; cursor: pointer; width: 100%; margin-top: 8px;
+    }
+    .ui-input {
+      background: #f1f1f1; border: 1px solid #ddd; border-radius: 12px;
+      padding: 14px; color: #333; font-size: 16px; width: 100%; margin-top: 8px;
+    }
+    .dark-mode .ui-input { background: #111; border: 1px solid #333; color: #eee; }
+    
+    .ui-image {
+      background: #e1e1e1; border-radius: 12px; width: 100%; height: 150px;
+      display: flex; align-items: center; justify-content: center; color: #999;
+      font-size: 12px; margin-top: 8px;
+    }
+    .dark-mode .ui-image { background: #222; }
+    
+    .ui-icon { width: 24px; height: 24px; background: #ccc; border-radius: 50%; display: inline-block; }
+    
+    .api-badge {
+      position: absolute; right: -10px; top: -10px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #10b981; color: #fff; border: 2px solid #fff;
+      padding: 2px 6px; border-radius: 12px; font-size: 10px; font-weight: 700; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .dark-mode .api-badge { border-color: #000; }
+    
+    /* Fallback structure for unknown tags */
+    .ui-unknown { font-size: 10px; color: #888; font-family: monospace; }
+    
+    /* API Node */
+    .api-node {
+      position: absolute; background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px; width: 260px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .api-node-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .api-name { font-weight: 600; font-size: 14px; color: #fff; }
+    .api-method { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+    .method-get { background: rgba(16,185,129,0.15); color: var(--get); }
+    .method-post { background: rgba(59,130,246,0.15); color: var(--post); }
+    .method-put { background: rgba(245,158,11,0.15); color: var(--put); }
+    .method-delete { background: rgba(239,68,68,0.15); color: var(--delete); }
+    .api-endpoint { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; word-break: break-all; }
+    
+    /* Bezier curves */
+    .edge { fill: none; stroke: #555; stroke-width: 2px; transition: stroke 0.2s, stroke-width 0.2s; }
+    .edge.active { stroke: var(--primary); stroke-width: 3px; }
+    
+    /* Right Sidebar (Inspector) */
+    .inspector {
+      width: 300px; background-color: var(--sidebar); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 100; box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+      transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: absolute; right: 0; height: 100%;
+    }
+    .inspector.open { transform: translateX(0); }
+    .inspector-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .inspector-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .close-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; }
+    .inspector-body { padding: 16px; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; }
+    .prop-group { margin-bottom: 16px; }
+    .prop-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
+    .prop-value { font-size: 12px; color: var(--text); word-break: break-all; }
+    .code-block { background: #1e1e1e; border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9cdcfe; overflow-x: auto; white-space: pre-wrap; margin-top: 4px; }
+    
+    .node-anchor { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid var(--primary); border-radius: 50%; top: 50%; transform: translateY(-50%); z-index: 10; }
+    .anchor-left { left: -6px; }
+    .anchor-right { right: -6px; }
+    
+    /* Folder Browser Modal Overlay */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-window { background: var(--card-bg); width: 600px; max-height: 80vh; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+    .modal-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-weight: 600; }
+    .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; }
+    .modal-body { padding: 16px; overflow-y: auto; flex: 1; }
+    .breadcrumbs { font-size: 12px; color: var(--primary); margin-bottom: 16px; cursor: pointer; font-weight: 500; }
+    .folder-explorer-list { display: flex; flex-direction: column; gap: 4px; }
+    .modal-footer { padding: 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+    
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+    
+    /* Checkbox toggle */
+    .toggle-switch { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+    .toggle-switch input { cursor: pointer; }
+  
+    /* --- NATIVE UI ENGINE --- */
+    :root {
+      --n-primary: #B31E8D;
+      --n-purple: #7461CF;
+      --n-bg: #F5F6FA;
+      --n-surface: #ffffff;
+      --n-text: #373737;
+      --n-text-muted: #959595;
+      --n-line: #e8e8e8;
+      --n-input-bg: #f5e9f3;
+      --n-radius: 12px;
+    }
+    
+    .dark-mode {
+      --n-bg: #111827;
+      --n-surface: #1f2937;
+      --n-text: #f9fafb;
+      --n-text-muted: #9ca3af;
+      --n-line: #374151;
+      --n-input-bg: #374151;
+    }
+
+    .native-device {
+      background: var(--n-bg);
+      border-radius: 40px;
+      border: 8px solid #000;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+      font-family: 'Prompt', -apple-system, sans-serif;
+      color: var(--n-text);
+    }
+    
+    .native-device::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 140px; height: 26px;
+      background: #000;
+      border-radius: 0 0 16px 16px;
+      z-index: 50;
+    }
+
+    .native-header {
+      background: var(--n-primary);
+      color: #fff;
+      padding: 40px 16px 16px; /* Space for notch */
+      font-size: 18px;
+      font-weight: 600;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+      z-index: 10;
+    }
+
+    
+    .native-btn {
+      background: var(--n-primary);
+      color: #fff;
+      text-align: center;
+      padding: 14px;
+      margin-bottom: 12px;
+      border-radius: 25px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(179, 30, 141, 0.3);
+      transition: transform 0.1s;
+      position: relative;
+    }
+    .native-btn:hover { transform: scale(0.98); }
+    
+    .native-input {
+      background: var(--n-input-bg);
+      border: 1px solid var(--n-line);
+      border-radius: var(--n-radius);
+      padding: 14px;
+      margin-bottom: 12px;
+      color: var(--n-text-muted);
+      position: relative;
+    }
+    
+    .native-card {
+      background: var(--n-surface);
+      border-radius: var(--n-radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    
+    .native-text {
+      color: var(--n-text);
+      font-size: 14px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    
+    .native-container {
+      padding: 8px;
+      margin-bottom: 8px;
+      border: 1px dashed rgba(149, 149, 149, 0.2);
+      border-radius: 8px;
+    }
+
+
+    .tag-pill {
+      position: absolute;
+      top: -8px; left: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 8px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-family: monospace;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    /* ------------------------------ */
+</style>
+
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-title">api-ui-mapper</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Visual Architecture Workspace</div>
+      </div>
+      <div class="project-loader">
+        <input type="text" id="project-path" class="input-sm" list="recent-projects" placeholder="Absolute project path...">
+        <datalist id="recent-projects"></datalist>
+        <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+          <button onclick="openFolderBrowser()" class="btn-primary" style="background: var(--sidebar); border: 1px solid var(--border); color: var(--text);">📂 Browse</button>
+        </div>
+        <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+          <input type="text" id="config-src" class="input-sm" placeholder="src dir (e.g. ./src)" style="margin-bottom: 0;">
+          <input type="text" id="config-api" class="input-sm" placeholder="api dirs" style="margin-bottom: 0;">
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">Recent Projects:</div>
+        <div id="recent-projects-list" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; max-height: 120px; overflow-y: auto;"></div>
+        <button id="scan-btn" class="btn-primary" onclick="scanProject()">Reload Canvas</button>
+        <div id="scan-status" style="font-size: 11px; margin-top: 8px; text-align: center; color: var(--primary);"></div>
+      </div>
+      <div class="layers-panel" id="layers-list">
+        <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">No data loaded.</div>
+      </div>
+    </aside>
+    
+    <main class="canvas-container" id="canvas-container">
+      <div class="canvas-toolbar">
+        <div class="toolbar-btn" style="cursor: default; color: #fff; font-weight: 600;">Canvas</div>
+        <button class="toolbar-btn" onclick="window.location.href='/playground'" style="color: var(--primary); font-weight: bold; background: rgba(14, 165, 233, 0.1);">⚡ API Playground</button>
+        <button class="toolbar-btn" onclick="resetZoom()">⌂ Zoom to Fit</button>
+        <div class="toolbar-btn" id="zoom-label" style="cursor: default; min-width: 60px; text-align: center;">100%</div>
+        <label class="toolbar-btn toggle-switch">
+          <input type="checkbox" id="show-apis" onchange="init()"> Show API Connections
+        </label>
+        <label class="toolbar-btn toggle-switch">
+          <input type="checkbox" id="show-navs" checked onchange="init()"> Show Navigations
+        </label>
+        <label class="toolbar-btn toggle-switch">
+          <input type="checkbox" id="dark-mode-ui" checked onchange="init()"> Dark Mode UI
+        </label>
+      </div>
+      
+      <div class="canvas-layer" id="canvas-layer">
+        <svg class="svg-layer" id="connection-svg"></svg>
+        <div class="canvas-content" id="canvas-nodes"></div>
+      </div>
+      
+      <aside class="inspector" id="inspector">
+        <div class="inspector-header">
+          <div style="display:flex; align-items:center;">
+            <button id="inspector-back-btn" class="close-btn" onclick="goBackInspector()" style="display:none; margin-right: 8px;">←</button>
+            <div class="inspector-title" id="inspector-title">Properties</div>
+          </div>
+          <button class="close-btn" onclick="closeInspector()">×</button>
+        </div>
+        <div class="inspector-body" id="inspector-body"></div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="folder-modal-overlay">
+    <div class="modal-window">
+      <div class="modal-header">
+        <span class="modal-title">Select Project Folder</span>
+        <button class="modal-close" onclick="closeFolderBrowser()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="breadcrumbs" id="explorer-breadcrumbs"></div>
+        <div class="folder-explorer-list" id="explorer-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeFolderBrowser()" style="padding: 8px 16px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--text); cursor: pointer;">Cancel</button>
+        <button onclick="selectCurrentFolder()" class="btn-primary" style="width: auto; padding: 8px 16px;">Select Current Folder</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // __DATA__ is substituted at build/serve time: the embedded scan JSON for a
+    // static report, or `null` when served live (the dashboard scans on demand).
+    let data = __DATA__;
+    
+    // Canvas State
+    let scale = 0.5;
+    let translateX = 50;
+    let translateY = 50;
+    let isPanning = false;
+    let startX = 0, startY = 0;
+    let selectedNodeId = null;
+    let selectedNodeType = null;
+    let inspectorHistory = [];
+    let currentExplorerPath = '';
+    let panZoomBound = false;
+
+    // Rendered artboard dimensions (keep in sync with renderCanvas()).
+    const ARTBOARD_W = 390;
+    const ARTBOARD_H = 844;
+
+    const positions = { screens: {}, apis: {} };
+    
+    const canvasContainer = document.getElementById('canvas-container');
+    const canvasLayer = document.getElementById('canvas-layer');
+    const canvasNodes = document.getElementById('canvas-nodes');
+    const svgCanvas = document.getElementById('connection-svg');
+    const zoomLabel = document.getElementById('zoom-label');
+    const layersList = document.getElementById('layers-list');
+    const inspector = document.getElementById('inspector');
+    const inspectorBody = document.getElementById('inspector-body');
+    const inspectorTitle = document.getElementById('inspector-title');
+    
+    async function scanProject() {
+      const projectPath = document.getElementById('project-path').value.trim();
+      const srcDir = document.getElementById('config-src').value.trim() || './src';
+      const apiDirs = document.getElementById('config-api').value.trim() || 'api,srcekyc/api';
+
+      const statusEl = document.getElementById('scan-status');
+      if (!projectPath) {
+        statusEl.textContent = "Enter a project path (or use 📂 Browse) first.";
+        return;
+      }
+
+      let recents = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      recents = recents.filter(p => p !== projectPath);
+      recents.unshift(projectPath);
+      if (recents.length > 5) recents.pop();
+      localStorage.setItem('recentProjects', JSON.stringify(recents));
+      updateRecentList();
+
+      statusEl.textContent = "Scanning project...";
+      
+      try {
+        const response = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectPath, srcDir, apiDirs, screensDir: 'screens', typesDir: 'types' })
+        });
+        const resData = await response.json();
+        if (!resData.error) {
+          data = resData;
+          statusEl.textContent = "Scan complete!";
+          setTimeout(() => statusEl.textContent = "", 2000);
+          init();
+        } else {
+          statusEl.textContent = "Error: " + resData.error;
+        }
+      } catch (err) {
+        statusEl.textContent = "Error connecting to server.";
+      }
+    }
+    
+    async function loadFolders(targetPath = '') {
+      const list = document.getElementById('explorer-list');
+      try {
+        const url = targetPath ? '/api/browse?path=' + encodeURIComponent(targetPath) : '/api/browse';
+        const res = await fetch(url);
+        const browseData = await res.json();
+        if (!browseData.error) {
+          currentExplorerPath = browseData.currentPath;
+          renderExplorer(browseData.currentPath, browseData.folders);
+        } else {
+          list.innerHTML = `<div style="color: var(--delete); font-size: 12px; padding: 8px;">${escapeHtml(browseData.error)}</div>`;
+        }
+      } catch (err) {
+        if (list) list.innerHTML = '<div style="color: var(--delete); font-size: 12px; padding: 8px;">Could not reach the server to browse folders.</div>';
+        console.error(err);
+      }
+    }
+    
+    function renderExplorer(currentPath, folders) {
+      const bc = document.getElementById('explorer-breadcrumbs');
+      const list = document.getElementById('explorer-list');
+      
+      const parts = currentPath.split(/[\/]/).filter(Boolean);
+      let html = `<span onclick="loadFolders('/')">/</span>`;
+      let buildPath = '';
+      parts.forEach(p => {
+        buildPath += '/' + p;
+        const currentP = buildPath;
+        html += ` <span style="color:var(--text-muted)">/</span> <span onclick="loadFolders('${jsAttr(currentP)}')">${escapeHtml(p)}</span>`;
+      });
+      bc.innerHTML = html;
+      
+      list.innerHTML = '';
+      if (currentPath !== '/' && currentPath !== '') {
+        const upItem = document.createElement('div');
+        upItem.className = 'layer-item'; upItem.innerHTML = `📁 ..`;
+        upItem.onclick = () => loadFolders(currentPath.substring(0, currentPath.lastIndexOf('/')) || '/');
+        list.appendChild(upItem);
+      }
+      folders.forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'layer-item'; item.innerHTML = `📁 ${escapeHtml(f.name)}`;
+        item.onclick = () => loadFolders(f.path);
+        list.appendChild(item);
+      });
+    }
+    
+    function openFolderBrowser() {
+      document.getElementById('folder-modal-overlay').style.display = 'flex';
+      loadFolders(document.getElementById('project-path').value.trim() || '');
+    }
+    function closeFolderBrowser() { document.getElementById('folder-modal-overlay').style.display = 'none'; }
+    function selectCurrentFolder() {
+      document.getElementById('project-path').value = currentExplorerPath;
+      closeFolderBrowser();
+      scanProject();
+    }
+    
+    function updateRecentList() {
+      const recents = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      const listDiv = document.getElementById('recent-projects-list');
+      if (listDiv) {
+        if (recents.length === 0) {
+          listDiv.innerHTML = '<div style="font-size: 11px; color: #666; font-style: italic;">No recents yet</div>';
+        } else {
+          listDiv.innerHTML = recents.map(p => `<button onclick="document.getElementById('project-path').value='${jsAttr(p)}'; scanProject();" style="text-align: left; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; color: var(--text); font-size: 11px; cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">${escapeHtml(p)}</button>`).join('');
+        }
+      }
+    }
+
+    function init() {
+      updateRecentList();
+      const recents = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+      if (recents.length > 0 && !document.getElementById('project-path').value) {
+        document.getElementById('project-path').value = recents[0];
+      }
+      
+      if (!data) return;
+      if (data && data.projectName && document.getElementById('project-path').value === '') {
+        document.getElementById('project-path').value = data.projectName;
+      }
+      
+      const showApis = document.getElementById('show-apis').checked;
+      const screensToShow = data.screensMapping.filter(s => showApis ? s.calls.length > 0 : true);
+
+      // Clear stale layout so edges never reference artboards from a prior render.
+      positions.screens = {};
+      positions.apis = {};
+
+      // Grid Layout for Screens
+      let cols = Math.ceil(Math.sqrt(screensToShow.length));
+      if (cols > 6) cols = 6; // Max 6 columns
+      
+      let curCol = 0, curRow = 0;
+      const xSpacing = 450;
+      const ySpacing = 900;
+      
+      screensToShow.forEach((screenObj) => {
+        positions.screens[screenObj.screen] = { x: 100 + (curCol * xSpacing), y: 100 + (curRow * ySpacing) };
+        curCol++;
+        if (curCol >= cols) { curCol = 0; curRow++; }
+      });
+      
+      let apiY = 100;
+      const apiX = 100 + (cols * xSpacing) + 200; // Place APIs to the right of the screen grid
+      
+      if (showApis) {
+        Object.values(data.apiRegistry).forEach((apiObj) => {
+          if (!apiObj.screens || apiObj.screens.length === 0) return;
+          positions.apis[apiObj.funcName] = { x: apiX, y: apiY };
+          apiY += 150;
+        });
+      }
+      
+      renderLayers(screensToShow, showApis);
+      renderCanvas(screensToShow, showApis);
+      setupPanZoom();
+    }
+    
+    function renderLayers(screensToShow, showApis) {
+      let html = '<div class="layer-group-title">Screens</div>';
+      screensToShow.forEach(s => {
+        const name = s.screen.split('/').pop();
+        html += `<div class="layer-item" id="layer-${s.screen.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="focusNode('screen', '${jsAttr(s.screen)}')">
+          <span style="color: #a78bfa;">#</span> ${escapeHtml(name)}
+        </div>`;
+      });
+
+      if (showApis) {
+        html += '<div class="layer-group-title" style="margin-top: 16px;">APIs</div>';
+        Object.values(data.apiRegistry).forEach(api => {
+          if (!api.screens || api.screens.length === 0) return;
+          html += `<div class="layer-item" id="layer-${api.funcName.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="focusNode('api', '${jsAttr(api.funcName)}')">
+            <span style="color: #38bdf8;">❖</span> ${escapeHtml(api.funcName)}
+          </div>`;
+        });
+      }
+      layersList.innerHTML = html;
+    }
+    
+    // Simulate real UI structure
+    function buildRealUI(nodes) {
+      if (!nodes || nodes.length === 0) return '';
+      let html = '';
+      
+      nodes.forEach(node => {
+        if (node.tagName === 'TEXT_LITERAL') {
+          html += `<div class="ui-text" style="color: #cbd5e1; font-size: 13px; margin: 2px 0;">${escapeHtml(node.text || node.content)}</div>`;
+          return;
+        }
+        
+        const tag = (node.tagName || '').toLowerCase();
+        const isButton = tag.includes('button') || tag.includes('touchable') || tag.includes('pressable');
+        const isInput = tag.includes('input') || tag.includes('textfield');
+        const isImage = tag.includes('image') || tag.includes('avatar') || tag.includes('icon');
+        const isTextWrapper = tag.includes('text') && !isInput;
+        const isScrollView = tag.includes('scroll');
+        const isRow = tag.includes('row');
+        const isCard = tag.includes('card');
+        const isHeader = tag.includes('header') || tag.includes('navbar');
+
+        let badgesHtml = '';
+        if (node.apiCalls && node.apiCalls.length > 0) {
+          node.apiCalls.forEach(api => {
+            badgesHtml += `<div class="api-badge" style="position:absolute; top:-8px; right:-8px; background:#a855f7; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.5); z-index: 5;">⚡️ ${escapeHtml(api)}</div>`;
+          });
+        }
+        if (node.navCalls && node.navCalls.length > 0) {
+          node.navCalls.forEach(nav => {
+            badgesHtml += `<div class="nav-badge" style="position:absolute; bottom:-8px; right:-8px; background:#3b82f6; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.5); z-index: 5;">➡️ ${escapeHtml(nav)}</div>`;
+          });
+        }
+
+
+        // Translate layoutProps into CSS
+        let dynamicStyle = "";
+        if (node.layoutProps) {
+          const lp = node.layoutProps;
+          if (lp.flex !== undefined) dynamicStyle += `flex: ${lp.flex}; `;
+          if (lp.flexDirection) dynamicStyle += `flex-direction: ${lp.flexDirection}; `;
+          if (lp.justifyContent) dynamicStyle += `justify-content: ${lp.justifyContent}; `;
+          if (lp.alignItems) dynamicStyle += `align-items: ${lp.alignItems}; `;
+          if (lp.textAlign) dynamicStyle += `text-align: ${lp.textAlign}; `;
+          if (lp.bg) dynamicStyle += `background-color: ${lp.bg === 'white' ? '#fff' : lp.bg}; `;
+          
+          const spaceMap = { s: '8px', m: '12px', l: '16px', xl: '24px', xxl: '32px' };
+          const getSp = (val) => typeof val === 'number' ? `${val}px` : (spaceMap[val] || val);
+          
+          if (lp.padH) { const sp = getSp(lp.padH); dynamicStyle += `padding-left: ${sp}; padding-right: ${sp}; `; }
+          if (lp.padV) { const sp = getSp(lp.padV); dynamicStyle += `padding-top: ${sp}; padding-bottom: ${sp}; `; }
+          if (lp.pad) { const sp = getSp(lp.pad); dynamicStyle += `padding: ${sp}; `; }
+          
+          if (lp.marginT) dynamicStyle += `margin-top: ${getSp(lp.marginT)}; `;
+          if (lp.marginB) dynamicStyle += `margin-bottom: ${getSp(lp.marginB)}; `;
+          if (lp.marginL) dynamicStyle += `margin-left: ${getSp(lp.marginL)}; `;
+          if (lp.marginR) dynamicStyle += `margin-right: ${getSp(lp.marginR)}; `;
+          if (lp.margin) dynamicStyle += `margin: ${getSp(lp.margin)}; `;
+          
+          if (lp.layoutH === 'center') dynamicStyle += `justify-content: center; align-items: center; `;
+          if (lp.layoutH === 'right') dynamicStyle += `justify-content: flex-end; align-items: center; `;
+          if (lp.layoutV === 'center') dynamicStyle += `justify-content: center; align-items: center; `;
+        }
+        
+        // Add dynamic style to all containers
+        const innerContent = buildRealUI(node.children);
+        
+        
+        // Subtle tag pill
+        const safeTag = escapeHtml(node.tagName);
+        const tagLabel = `<div class="tag-pill">&lt;${safeTag}&gt;</div>`;
+
+        // We wrap everything in relative divs so badges position correctly
+        if (isTextWrapper) {
+          html += `<div class="native-text" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent}</div>`;
+        } else if (isButton) {
+          html += `<div class="native-btn" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent || safeTag}</div>`;
+        } else if (isInput) {
+          html += `<div class="native-input" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent || safeTag}</div>`;
+        } else if (isImage) {
+          html += `<div style="background: #e2e8f0; border-radius: var(--n-radius); height: 120px; display: flex; align-items: center; justify-content: center; color: #94a3b8; position:relative; overflow:hidden; ${dynamicStyle}">${badgesHtml}${tagLabel}🖼 ${safeTag}</div>`;
+        } else if (isHeader) {
+          html += `<div class="native-header" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent || safeTag}</div>`;
+        } else {
+          // View / ScrollView / Container
+          let flexStyle = `display: flex; flex-direction: column; position: relative; ${dynamicStyle}`;
+          let classList = "native-container";
+          
+          if (isCard) classList = classList.replace("native-container", "native-card");
+          if (isScrollView) {
+             flexStyle += " overflow-y: auto; flex: 1;";
+             classList += " native-scroll";
+          }
+          if (isRow) flexStyle += " flex-direction: row; align-items: flex-start; gap: 8px; flex-wrap: wrap;";
+
+          html += `<div class="${classList}" style="${flexStyle}">
+            ${badgesHtml}
+            ${tagLabel}
+            <div style="display: flex; flex-direction: ${isRow ? 'row' : 'column'}; width: 100%; gap: ${isRow ? '8px' : '0'};">
+                ${innerContent}
+            </div>
+          </div>`;
+        }
+      });
+      return html;
+    }
+    
+    function renderCanvas(screensToShow, showApis) {
+      const isDarkModeUI = document.getElementById('dark-mode-ui').checked;
+      let nodesHtml = '';
+      
+      screensToShow.forEach(s => {
+        const pos = positions.screens[s.screen];
+        const uiHtml = buildRealUI(s.uiTree);
+        const name = s.screen.split('/').pop();
+        
+        // Add a prominent header inside the screen to clearly show the filename
+        
+        
+        nodesHtml += `
+          <div class="artboard native-device ${isDarkModeUI ? 'dark-mode' : ''}" style="left: ${pos.x}px; top: ${pos.y}px; width: ${ARTBOARD_W}px; height: ${ARTBOARD_H}px; padding:0; display:flex; flex-direction:column;" id="node-${s.screen.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="selectNode('screen', '${jsAttr(s.screen)}')">
+            <div class="artboard-title" style="top: -32px; color: var(--text);">${escapeHtml(name)}</div>
+            <div class="native-header" style="border-radius: 32px 32px 0 0;">${escapeHtml(name.replace('.js', ''))}</div>
+            <div style="flex: 1; overflow-y: auto; background: var(--n-bg); position: relative; padding: 16px;">
+              ${uiHtml || '<div style="color:var(--n-text-muted);text-align:center;margin-top:40px;">No UI structure parsed</div>'}
+            </div>
+            ${showApis ? '<div class="node-anchor anchor-right"></div>' : ''}
+          </div>
+        `;
+      });
+      
+      if (showApis) {
+        Object.values(data.apiRegistry).forEach(api => {
+          if (!api.screens || api.screens.length === 0) return;
+          const pos = positions.apis[api.funcName];
+          nodesHtml += `
+            <div class="api-node" style="left: ${pos.x}px; top: ${pos.y}px;" id="node-${api.funcName.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="selectNode('api', '${jsAttr(api.funcName)}')">
+              <div class="node-anchor anchor-left"></div>
+              <div class="api-node-header"><span class="api-name">❖ ${escapeHtml(api.funcName)}</span><span class="api-method method-${escapeHtml(api.method.toLowerCase())}">${escapeHtml(api.method)}</span></div>
+              <div class="api-endpoint">${escapeHtml(api.endpoint)}</div>
+            </div>
+          `;
+        });
+      }
+      
+      canvasNodes.innerHTML = nodesHtml;
+      drawEdges(showApis);
+    }
+    
+    function drawEdges(showApis) {
+      if (!showApis) { svgCanvas.innerHTML = ''; return; }
+      
+      let svgHtml = '';
+      data.screensMapping.forEach(s => {
+        if (s.calls.length === 0) return;
+        const pos1 = positions.screens[s.screen];
+        if (!pos1) return;
+        
+        const startX = pos1.x + ARTBOARD_W; // artboard right edge
+        const startY = pos1.y + ARTBOARD_H / 2; // vertical middle
+
+        s.calls.forEach(call => {
+          const pos2 = positions.apis[call.funcName];
+          if (!pos2) return;
+          
+          const endX = pos2.x;
+          const endY = pos2.y + 30;
+          
+          const cX1 = startX + (endX - startX) / 2;
+          const path = `M ${startX} ${startY} C ${cX1} ${startY}, ${cX1} ${endY}, ${endX} ${endY}`;
+          const isSelected = selectedNodeId === s.screen || selectedNodeId === call.funcName;
+          const activeClass = isSelected ? 'active' : '';
+          
+          svgHtml += `<path class="edge ${activeClass}" d="${path}" id="edge-${s.screen.replace(/[^a-zA-Z0-9]/g,'_')}-${call.funcName.replace(/[^a-zA-Z0-9]/g,'_')}" />`;
+        });
+      });
+      
+      const showNavs = document.getElementById('show-navs') ? document.getElementById('show-navs').checked : false;
+      if (showNavs) {
+        data.screensMapping.forEach(s => {
+          if (!s.navs || s.navs.length === 0) return;
+          const pos1 = positions.screens[s.screen];
+          if (!pos1) return;
+          
+          const startX = pos1.x + ARTBOARD_W;
+          const startY = pos1.y + 100; // Anchor a bit higher
+          
+          s.navs.forEach(nav => {
+            const targetScreen = data.screensMapping.find(ts => 
+              ts.screen.endsWith('/' + nav + '.js') || 
+              ts.screen.endsWith('/' + nav + '.tsx') || 
+              ts.screen.includes('/' + nav + '/') ||
+              ts.screen.toLowerCase().includes(nav.toLowerCase()) // loose fallback
+            );
+            
+            if (!targetScreen) return;
+            const pos2 = positions.screens[targetScreen.screen];
+            if (!pos2) return;
+            
+            const endX = pos2.x;
+            const endY = pos2.y + 100;
+            const cX1 = startX + Math.abs(endX - startX) / 2;
+            const path = `M ${startX} ${startY} C ${cX1} ${startY}, ${cX1} ${endY}, ${endX} ${endY}`;
+            
+            svgHtml += `<path class="edge" style="stroke: #8b5cf6; stroke-dasharray: 6,4;" d="${path}" />`;
+          });
+        });
+      }
+      svgCanvas.innerHTML = svgHtml;
+    }
+    
+    function goBackInspector() {
+      if (inspectorHistory.length > 0) {
+        const prev = inspectorHistory.pop();
+        selectNode(prev.type, prev.id, true);
+      }
+    }
+    
+    function selectNode(type, id, isBack = false) {
+      if (!isBack) {
+        if (inspector.classList.contains('open') && selectedNodeId) {
+          inspectorHistory.push({ type: selectedNodeType, id: selectedNodeId });
+        } else {
+          inspectorHistory = [];
+        }
+      }
+      
+      const backBtn = document.getElementById('inspector-back-btn');
+      if (backBtn) {
+        backBtn.style.display = inspectorHistory.length > 0 ? 'inline-block' : 'none';
+      }
+      
+      selectedNodeType = type;
+      selectedNodeId = id;
+      document.querySelectorAll('.layer-item').forEach(el => el.classList.remove('active'));
+      const safeId = id.replace(/[^a-zA-Z0-9]/g,'_');
+      const li = document.getElementById(`layer-${safeId}`);
+      if (li) li.classList.add('active');
+      
+      document.querySelectorAll('.artboard, .api-node').forEach(el => {
+        el.style.borderColor = '';
+        el.style.boxShadow = '';
+      });
+      
+      const nodeEl = document.getElementById(`node-${safeId}`);
+      if (nodeEl) {
+        nodeEl.style.borderColor = 'var(--primary)';
+        nodeEl.style.boxShadow = '0 0 0 4px var(--primary-glow), 0 10px 40px rgba(0,0,0,0.5)';
+      }
+      
+      drawEdges(document.getElementById('show-apis').checked);
+      
+      inspector.classList.add('open');
+      if (type === 'screen') {
+        const s = data.screensMapping.find(x => x.screen === id);
+        inspectorTitle.textContent = 'Screen Properties';
+        let apisHtml = s.calls.map(c => `<div class="layer-item" onclick="focusNode('api', '${jsAttr(c.funcName)}')"><span style="color:#38bdf8">❖</span> ${escapeHtml(c.funcName)}</div>`).join('');
+        inspectorBody.innerHTML = `
+          <div class="prop-group"><div class="prop-label">File Path</div><div class="prop-value">${escapeHtml(s.screen)}</div></div>
+          <button class="btn-primary" onclick="openFileInEditor('${jsAttr(s.screen)}')" style="margin-bottom: 24px;">📂 Open in Editor</button>
+          <div class="prop-group"><div class="prop-label">Calls APIs (${s.calls.length})</div>
+            <div style="margin-top: 8px; border: 1px solid var(--border); border-radius: 4px; padding: 4px 0;">${apisHtml}</div>
+          </div>
+        `;
+      } else {
+        const api = data.apiRegistry[id];
+        inspectorTitle.textContent = 'API Properties';
+        let reqHtml = api.reqTypeDecl ? `<div class="prop-label">Request Type: ${escapeHtml(api.reqType)}</div><div class="code-block">${escapeHtml(api.reqTypeDecl)}</div>` : '';
+        let resHtml = api.resTypeDecl ? `<div class="prop-label">Response Type: ${escapeHtml(api.resType)}</div><div class="code-block">${escapeHtml(api.resTypeDecl)}</div>` : '';
+        inspectorBody.innerHTML = `
+          <div class="prop-group"><div class="prop-label">Function</div><div class="prop-value">${escapeHtml(api.funcName)}</div></div>
+          <div class="prop-group"><div class="prop-label">Endpoint</div><div class="prop-value"><span class="api-method method-${escapeHtml(api.method.toLowerCase())}">${escapeHtml(api.method)}</span> ${escapeHtml(api.endpoint)}</div></div>
+          <div class="prop-group"><div class="prop-label">File</div><div class="prop-value">${escapeHtml(api.file)}</div></div>
+          <button class="btn-primary" onclick="openFileInEditor('${jsAttr(api.file)}')" style="margin-bottom: 24px;">📂 Open in Editor</button>
+          <div class="prop-group">${reqHtml}</div><div class="prop-group">${resHtml}</div>
+        `;
+      }
+    }
+    
+    function focusNode(type, id) {
+      selectNode(type, id);
+      const pos = type === 'screen' ? positions.screens[id] : positions.apis[id];
+      if (pos) {
+        const rect = canvasContainer.getBoundingClientRect();
+        translateX = (rect.width / 2) - (pos.x * scale);
+        translateY = (rect.height / 2) - ((pos.y + ARTBOARD_H / 2) * scale);
+        updateTransform();
+      }
+    }
+    
+    function closeInspector() {
+      inspector.classList.remove('open');
+      selectedNodeId = null;
+      drawEdges(document.getElementById('show-apis').checked);
+      document.querySelectorAll('.artboard, .api-node').forEach(el => { el.style.borderColor = ''; el.style.boxShadow = ''; });
+      document.querySelectorAll('.layer-item').forEach(el => el.classList.remove('active'));
+    }
+    
+    function setupPanZoom() {
+      // init() can run many times (toggles, re-scans); only bind listeners once
+      // to avoid stacking duplicate handlers on every render.
+      if (!panZoomBound) {
+        panZoomBound = true;
+        canvasContainer.addEventListener('mousedown', (e) => {
+          if (e.target.closest('.canvas-content')) return;
+          isPanning = true; startX = e.clientX - translateX; startY = e.clientY - translateY;
+          canvasContainer.style.cursor = 'grabbing';
+        });
+        window.addEventListener('mousemove', (e) => {
+          if (!isPanning) return;
+          translateX = e.clientX - startX; translateY = e.clientY - startY;
+          updateTransform();
+        });
+        window.addEventListener('mouseup', () => { isPanning = false; canvasContainer.style.cursor = 'default'; });
+
+        canvasContainer.addEventListener('wheel', (e) => {
+          if (e.target.closest('.inspector') || e.target.closest('.modal-window')) return;
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            const zoomAmount = e.deltaY * -0.005;
+            const newScale = Math.min(Math.max(0.1, scale + zoomAmount), 3);
+            const rect = canvasContainer.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left; const mouseY = e.clientY - rect.top;
+            translateX = mouseX - (mouseX - translateX) * (newScale / scale);
+            translateY = mouseY - (mouseY - translateY) * (newScale / scale);
+            scale = newScale;
+          } else {
+            translateX -= e.deltaX; translateY -= e.deltaY;
+          }
+          updateTransform();
+        }, { passive: false });
+      }
+      updateTransform();
+    }
+    
+    function updateTransform() {
+      canvasLayer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      zoomLabel.textContent = Math.round(scale * 100) + '%';
+    }
+    
+    function resetZoom() { scale = 0.5; translateX = 50; translateY = 50; updateTransform(); }
+    
+    function escapeHtml(unsafe) {
+      if (!unsafe) return "";
+      return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Escape for use inside a single-quoted JS string within a double-quoted
+    // HTML attribute, e.g. onclick="fn('${jsAttr(value)}')". Prevents both
+    // injection and breakage when scanned names/paths contain quotes.
+    function jsAttr(s) {
+      return String(s == null ? "" : s)
+        .replace(/\\/g, "\\\\").replace(/'/g, "\\'")
+        .replace(/"/g, "&quot;").replace(/</g, "\\x3C").replace(/\r?\n/g, "");
+    }
+    
+    function openFileInEditor(filePath) {
+      fetch('/api/open-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: filePath, srcDir: data.srcDir })
+      }).catch(err => console.error(err));
+    }
+    
+    window.onload = init;
+  </script>
+</body>
+</html>

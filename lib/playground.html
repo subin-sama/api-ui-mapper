@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Mock Playground</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Load Ace Editor from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js" integrity="sha512-oz/97HdPI510jvvYzVqE2tzz+jWpvUeVkK5OT0S2kPZOxuR+9cE8zT1V6UgwtRG71ThICBEtkPEzN5tfP/YeYw==" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #0f111a;
+      --bg-panel: #1a1d2d;
+      --bg-panel-hover: #212538;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #2d3142;
+      
+      --get: #3b82f6;
+      --post: #10b981;
+      --put: #f59e0b;
+      --delete: #ef4444;
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    header {
+      background: var(--bg-panel);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+    }
+    
+    header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; color: #60a5fa; display: flex; align-items: center; gap: 8px;}
+    
+    .btn {
+      padding: 8px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-secondary { background: var(--bg-panel); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg-panel-hover); }
+    .btn-success { background: var(--success); }
+    
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .sidebar {
+      width: 260px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 24px 0;
+    }
+    
+    .sidebar-title {
+       padding: 0 24px 12px;
+       font-size: 0.75rem;
+       text-transform: uppercase;
+       color: var(--text-muted);
+       font-weight: 700;
+       letter-spacing: 0.05em;
+    }
+    
+    .feature-group-link {
+      padding: 10px 24px;
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .feature-group-link:hover, .feature-group-link.active {
+      color: var(--text);
+      background: rgba(255,255,255,0.05);
+      border-left: 3px solid var(--primary);
+    }
+    
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px;
+      scroll-behavior: smooth;
+    }
+    
+    .feature-section { margin-bottom: 64px; }
+    .feature-title { 
+      font-size: 1.5rem; 
+      border-bottom: 1px solid var(--border); 
+      padding-bottom: 12px; 
+      margin-bottom: 24px; 
+      color: white;
+      font-weight: 600;
+    }
+    
+    .endpoint {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .endpoint-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .endpoint-header:hover { background: var(--bg-panel-hover); }
+    
+    .method-badge {
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.75rem;
+      margin-right: 16px;
+      min-width: 70px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .method-badge.get { background: rgba(59, 130, 246, 0.2); color: var(--get); }
+    .method-badge.post { background: rgba(16, 185, 129, 0.2); color: var(--post); }
+    .method-badge.put { background: rgba(245, 158, 11, 0.2); color: var(--put); }
+    .method-badge.delete { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    
+    .base-url-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(148, 163, 184, 0.1);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    
+    .endpoint-path { font-family: monospace; font-size: 1rem; flex: 1; color: #e2e8f0; }
+    .endpoint-func { font-size: 0.85rem; color: var(--text-muted); margin-left: 16px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;}
+    
+    .endpoint-body {
+      display: none;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    
+    .endpoint.open .endpoint-body { display: block; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.2);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.05em;
+    }
+    
+    .editor-container {
+      width: 100%;
+      height: 300px;
+    }
+    
+    .actions { display: flex; gap: 16px; margin-top: 24px; justify-content: flex-end; align-items: center; background: var(--bg-panel); padding: 16px; border-radius: 8px; border: 1px solid var(--border);}
+    
+    .status-input-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-right: auto;
+    }
+    
+    .status-input-container span {
+       font-weight: 500;
+       color: var(--text-muted);
+    }
+    
+    .status-input {
+      width: 90px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 1rem;
+      text-align: center;
+    }
+    .status-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);}
+    
+    .try-response {
+      margin-top: 24px;
+      background: #000;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      display: none;
+      border: 1px solid var(--border);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    #loading { text-align: center; padding: 60px; color: var(--text-muted); font-size: 1.1rem;}
+  
+    .endpoint-open-file {
+      margin-left: 16px;
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .endpoint-open-file:hover { background: rgba(255, 255, 255, 0.2); }
+    
+    .copy-url-btn {
+      font-size: 0.75rem;
+      background: var(--bg-panel);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      margin-right: 12px;
+    }
+    .copy-url-btn:hover { background: var(--primary); color: white; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>⚡ API Mock Playground</h1>
+    <button class="btn btn-secondary" onclick="window.location.href='/'">Back to Canvas</button>
+  </header>
+  
+  <div class="main-content">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="content-area" id="api-list">
+      <div id="loading">Loading API registry...</div>
+    </div>
+  </div>
+
+  <script>
+    let apiData = {};
+    let groupedApis = {};
+    let editors = {}; // Store ace editor instances
+
+    // Escape for HTML text content.
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    // Escape for use inside a single-quoted JS string within a double-quoted
+    // HTML attribute (e.g. onclick="fn('${jsAttr(x)}')").
+    function jsAttr(s) {
+      return String(s == null ? '' : s)
+        .replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;').replace(/</g, '\\x3C').replace(/\r?\n/g, '');
+    }
+
+    async function fetchApiData() {
+      try {
+        const res = await fetch('/api/mock-registry');
+        const data = await res.json();
+        apiData = data.apiRegistry || {};
+        groupApis();
+        renderSidebar();
+        renderApiList();
+      } catch (err) {
+        document.getElementById('api-list').innerHTML = `<div style="color:red; padding:40px;">Failed to load API data. Make sure backend is running.</div>`;
+      }
+    }
+    
+    function groupApis() {
+      // Only endpoints that can actually be hit through the /mock interceptor:
+      // skip local/config actions and dynamic (variable) URLs.
+      const apis = Object.values(apiData).filter(api =>
+        api.endpoint &&
+        api.method !== 'LOCAL' &&
+        api.endpoint !== '(config/local action)' &&
+        api.endpoint !== '(dynamic)'
+      );
+      groupedApis = {};
+      
+      apis.forEach(api => {
+        let feature = 'General';
+        if (api.file) {
+           const parts = api.file.split('/');
+           const filename = parts.pop().split('.')[0];
+           feature = filename || 'General';
+        }
+        
+        if (!groupedApis[feature]) {
+          groupedApis[feature] = [];
+        }
+        groupedApis[feature].push(api);
+      });
+    }
+
+    function renderSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.innerHTML = '<div class="sidebar-title">API Features</div>';
+      
+      const features = Object.keys(groupedApis).sort();
+      
+      features.forEach(feature => {
+        const a = document.createElement('a');
+        a.href = `#feature-${feature}`;
+        a.className = 'feature-group-link';
+        a.textContent = feature;
+        sidebar.appendChild(a);
+      });
+    }
+
+    function renderApiList() {
+      const container = document.getElementById('api-list');
+      container.innerHTML = '';
+      
+      const features = Object.keys(groupedApis).sort();
+      if (features.length === 0) {
+        container.innerHTML = '<div id="loading">No valid API endpoints found.<br><br><span style="font-size:0.9rem">Please go back to the Canvas and click <b>Reload Canvas / Scan Project</b> first.</span></div>';
+        return;
+      }
+
+      features.forEach(feature => {
+        const section = document.createElement('div');
+        section.className = 'feature-section';
+        section.id = `feature-${feature}`;
+        
+        const title = document.createElement('div');
+        title.className = 'feature-title';
+        title.textContent = feature;
+        section.appendChild(title);
+        
+        groupedApis[feature].forEach((api) => {
+          let reqMock = `// Type: ${api.reqType}\n/*\n${api.reqTypeDecl}\n*/\n`;
+          reqMock += api.mockReqJson ? JSON.stringify(api.mockReqJson, null, 2) : "{}";
+          
+          let resMock = `// Type: ${api.resType}\n/*\n${api.resTypeDecl}\n*/\n`;
+          resMock += api.mockResJson ? JSON.stringify(api.mockResJson, null, 2) : "{}";
+          
+          const method = (api.method || 'GET').toLowerCase();
+          // Include the method so GET/POST on the same path don't collide.
+          const endpointId = (method + '_' + api.endpoint).replace(/[^a-zA-Z0-9]/g, '_');
+
+          const div = document.createElement('div');
+          div.className = 'endpoint';
+
+          const epAttr = jsAttr(api.endpoint);
+
+          div.innerHTML = `
+            <div class="endpoint-header" onclick="toggleEndpoint(this, '${endpointId}')">
+              <div class="method-badge ${esc(method)}">${esc(method.toUpperCase())}</div>
+              ${api.baseUrl ? `<div class="base-url-badge">${esc(api.baseUrl)}</div>` : ''}
+              <div class="endpoint-path">${esc(api.endpoint)}</div>
+              <div class="endpoint-func">${esc(api.funcName)}</div>
+              <button class="endpoint-open-file" onclick="openFile(event, '${jsAttr(api.file)}')">📄 Open File</button>
+            </div>
+            <div class="endpoint-body">
+              <div class="grid-2">
+                <div class="panel">
+                  <div class="panel-title">Request Payload</div>
+                  <div id="req-editor-${endpointId}" class="editor-container"></div>
+                </div>
+                <div class="panel">
+                  <div class="panel-title">Mock Response Configuration</div>
+                  <div id="res-editor-${endpointId}" class="editor-container"></div>
+                </div>
+              </div>
+
+              <div class="actions">
+                <div class="status-input-container">
+                  <span>Status Code:</span>
+                  <input type="number" id="status-${endpointId}" class="status-input" value="200" />
+                </div>
+                <button class="copy-url-btn" onclick="copyUrl(event, '${epAttr}')">🔗 Copy URL</button>
+                <button class="btn btn-secondary" onclick="saveConfig(event, '${epAttr}', '${endpointId}')">Save Config</button>
+                <button class="btn btn-success" onclick="tryItOut('${epAttr}', '${esc(method.toUpperCase())}', '${endpointId}')">Try it out!</button>
+              </div>
+              <div class="try-response" id="out-${endpointId}"></div>
+            </div>
+          `;
+          section.appendChild(div);
+          
+          // We will initialize editors when the accordion opens to save performance
+          editors[`req-editor-${endpointId}`] = { value: reqMock, instance: null };
+          editors[`res-editor-${endpointId}`] = { value: resMock, instance: null };
+        });
+        
+        container.appendChild(section);
+      });
+    }
+
+    function toggleEndpoint(el, endpointId) {
+      const parent = el.parentElement;
+      const isOpen = parent.classList.toggle('open');
+      
+      if (isOpen) {
+         initEditor(`req-editor-${endpointId}`);
+         initEditor(`res-editor-${endpointId}`);
+      }
+    }
+    
+    function initEditor(id) {
+       if (editors[id] && !editors[id].instance && typeof ace !== 'undefined') {
+          const editor = ace.edit(id);
+          editor.setTheme("ace/theme/tomorrow_night_eighties");
+          editor.session.setMode("ace/mode/javascript");
+          editor.setValue(editors[id].value, -1); // -1 moves cursor to start
+          editor.setOptions({
+             fontSize: "13px",
+             showPrintMargin: false,
+             useWorker: false // disable syntax checker warnings for pseudo-js
+          });
+          editors[id].instance = editor;
+       }
+    }
+    
+    async function saveConfig(event, endpoint, endpointId) {
+       const editor = editors[`res-editor-${endpointId}`];
+       if (!editor || !editor.instance) {
+          alert('Editor not ready yet — expand the endpoint and wait for it to load before saving.');
+          return;
+       }
+
+       const resText = editor.instance.getValue();
+       const statusCode = document.getElementById(`status-${endpointId}`).value;
+
+       // Strip comment lines/blocks so only the JSON body is persisted.
+       const resBody = resText.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+
+       const btn = event.target;
+       btn.textContent = 'Saving...';
+       
+       try {
+           const req = await fetch('/api/mock-config', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                   endpoint,
+                   statusCode,
+                   resBody
+               })
+           });
+           
+           if (req.ok) {
+               btn.textContent = 'Saved!';
+               btn.style.background = 'var(--success)';
+               setTimeout(() => {
+                   btn.textContent = 'Save Config';
+                   btn.style.background = 'var(--bg-panel)';
+               }, 2000);
+           } else {
+               alert("Failed to save config.");
+               btn.textContent = 'Save Config';
+           }
+       } catch(e) {
+           alert("Error saving config: " + e.message);
+           btn.textContent = 'Save Config';
+       }
+    }
+
+    async function tryItOut(endpoint, method, indexId) {
+      const outBlock = document.getElementById(`out-${indexId}`);
+      outBlock.style.display = 'block';
+      outBlock.innerText = 'Loading...';
+      outBlock.style.color = "var(--text)";
+      
+      let reqBody = {};
+      if (editors[`req-editor-${indexId}`] && editors[`req-editor-${indexId}`].instance) {
+          const reqText = editors[`req-editor-${indexId}`].instance.getValue();
+          const jsonStr = reqText.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+          if (jsonStr) {
+            try {
+              reqBody = JSON.parse(jsonStr);
+            } catch(e) {
+              // Don't silently send an empty body — tell the user their JSON is bad.
+              outBlock.innerText = 'Request payload is not valid JSON:\n' + e.message;
+              outBlock.style.color = 'var(--danger)';
+              return;
+            }
+          }
+      }
+      
+      try {
+        const url = `/mock${endpoint}`;
+        const options = {
+          method: method,
+          headers: { 'Content-Type': 'application/json' }
+        };
+        if (method !== 'GET' && method !== 'HEAD') {
+          options.body = JSON.stringify(reqBody);
+        }
+        
+        const res = await fetch(url, options);
+        let data;
+        try {
+            data = await res.json();
+        } catch(e) {
+            data = await res.text();
+        }
+        
+        let displayStr = `Status: ${res.status}\n\n`;
+        if (typeof data === 'object') {
+           displayStr += JSON.stringify(data, null, 2);
+        } else {
+           displayStr += data;
+        }
+        
+        outBlock.innerText = displayStr;
+        outBlock.style.color = res.ok ? "var(--success)" : "var(--danger)";
+        
+      } catch (err) {
+        outBlock.innerText = 'Error: ' + err.message;
+        outBlock.style.color = 'var(--danger)';
+      }
+    }
+
+    
+    async function openFile(event, filepath) {
+       event.stopPropagation(); // Prevent accordion toggle
+       try {
+           const btn = event.target;
+           const originalText = btn.textContent;
+           btn.textContent = 'Opening...';
+           const res = await fetch('/api/open-file', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ file: filepath })
+           });
+           if(res.ok) {
+               btn.textContent = 'Opened!';
+           } else {
+               btn.textContent = 'Error';
+           }
+           setTimeout(() => { btn.textContent = originalText; }, 2000);
+        } catch(e) {
+            alert("Failed to open file: " + e.message);
+        }
+    }
+
+    function copyUrl(event, endpoint) {
+       const url = window.location.origin + '/mock' + endpoint;
+       navigator.clipboard.writeText(url).then(() => {
+           const btn = event.target;
+           const originalText = btn.textContent;
+           btn.textContent = '✅ Copied!';
+           setTimeout(() => { btn.textContent = originalText; }, 2000);
+       }).catch(() => {
+           alert("Failed to copy URL");
+       });
+    }
+
+    // Initialize
+
+    window.onload = () => {
+       // Ace is loaded from CDN in <head>. If it was blocked (offline/CSP), the
+       // editors won't initialize; warn so the empty panels aren't a mystery.
+       if (typeof ace === 'undefined') {
+          console.warn("Ace editor failed to load from CDN — request/response editors will be unavailable.");
+       }
+       fetchApiData();
+    };
+  </script>
+</body>
+</html>

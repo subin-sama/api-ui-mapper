@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Generated output reports
+api-mapping.html
+api-mapping.json
+*.api-mapping.html
+*.api-mapping.json
+
+# User config
+api-mapper.config.json
+
+# OS / editor
+.DS_Store
+*.log
