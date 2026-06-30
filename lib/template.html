@@ -259,81 +259,71 @@
       z-index: 50;
     }
 
-    .native-header {
-      background: var(--n-primary);
-      color: #fff;
-      padding: 40px 16px 16px; /* Space for notch */
-      font-size: 18px;
-      font-weight: 600;
-      text-align: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      position: relative;
-      z-index: 10;
+    /* Device chrome */
+    .native-statusbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 28px 4px; font-size: 13px; font-weight: 700;
+      color: var(--n-text); background: var(--n-bg);
     }
+    .native-statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+    .sb-wifi { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 11px solid var(--n-text); opacity: 0.85; }
+    .sb-signal { width: 17px; height: 11px; background: var(--n-text); opacity: 0.85;
+      clip-path: polygon(0 100%,0 72%,22% 72%,22% 100%,34% 100%,34% 46%,56% 46%,56% 100%,68% 100%,68% 20%,90% 20%,90% 100%); }
+    .sb-batt { width: 22px; height: 11px; border: 1.5px solid var(--n-text); border-radius: 3px; position: relative; opacity: 0.85; }
+    .sb-batt::before { content: ""; position: absolute; left: 1.5px; top: 1.5px; bottom: 1.5px; width: 13px; background: var(--n-text); border-radius: 1px; }
+    .sb-batt::after { content: ""; position: absolute; right: -3.5px; top: 3px; bottom: 3px; width: 2px; background: var(--n-text); border-radius: 1px; opacity: 0.7; }
 
-    
+    .native-appbar {
+      background: var(--n-primary); color: #fff; padding: 12px 16px 14px;
+      font-size: 17px; font-weight: 700; text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12); position: relative; z-index: 10;
+    }
+    .native-screen {
+      flex: 1; overflow-y: auto; background: var(--n-bg);
+      padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; position: relative;
+    }
+    .native-homebar { height: 24px; display: flex; align-items: center; justify-content: center; background: var(--n-bg); }
+    .native-homebar::after { content: ""; width: 130px; height: 5px; border-radius: 3px; background: var(--n-text); opacity: 0.32; }
+
+    /* Mock elements */
     .native-btn {
-      background: var(--n-primary);
-      color: #fff;
-      text-align: center;
-      padding: 14px;
-      margin-bottom: 12px;
-      border-radius: 25px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 4px 10px rgba(179, 30, 141, 0.3);
-      transition: transform 0.1s;
-      position: relative;
+      background: var(--n-primary); color: #fff; text-align: center;
+      padding: 14px; border-radius: 14px; font-weight: 600; font-size: 15px;
+      box-shadow: 0 6px 14px rgba(179, 30, 141, 0.28); position: relative;
     }
-    .native-btn:hover { transform: scale(0.98); }
-    
     .native-input {
-      background: var(--n-input-bg);
-      border: 1px solid var(--n-line);
-      border-radius: var(--n-radius);
-      padding: 14px;
-      margin-bottom: 12px;
-      color: var(--n-text-muted);
-      position: relative;
+      background: var(--n-input-bg); border: 1px solid var(--n-line);
+      border-radius: 12px; padding: 14px; color: var(--n-text-muted);
+      font-size: 14px; position: relative;
     }
-    
     .native-card {
-      background: var(--n-surface);
-      border-radius: var(--n-radius);
-      padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      position: relative;
+      background: var(--n-surface); border-radius: 14px; padding: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06); position: relative;
     }
-    
-    .native-text {
-      color: var(--n-text);
-      font-size: 14px;
-      margin-bottom: 8px;
-      position: relative;
+    .native-text { color: var(--n-text); font-size: 15px; line-height: 1.4; position: relative; }
+    .native-subheader { font-size: 17px; font-weight: 700; color: var(--n-text); position: relative; }
+    .native-box { position: relative; }
+    .native-image {
+      background: linear-gradient(135deg, #e9edf3, #dfe5ee); border-radius: 14px;
+      height: 120px; display: flex; align-items: center; justify-content: center;
+      color: #9aa6b8; position: relative;
     }
-    
-    .native-container {
-      padding: 8px;
-      margin-bottom: 8px;
-      border: 1px dashed rgba(149, 149, 149, 0.2);
-      border-radius: 8px;
+    .dark-mode .native-image { background: linear-gradient(135deg, #263041, #1c2430); }
+    .native-skel { display: inline-block; width: 72px; height: 9px; border-radius: 5px; background: rgba(255,255,255,0.6); }
+    .native-modal-chip {
+      align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--n-text-muted); background: rgba(127,127,127,0.10);
+      border: 1px dashed var(--n-line); border-radius: 999px; padding: 4px 10px; position: relative;
     }
 
-
-    .tag-pill {
-      position: absolute;
-      top: -8px; left: 8px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 8px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-family: monospace;
-      z-index: 20;
-      pointer-events: none;
-      opacity: 0.7;
+    /* API / navigation badges */
+    .native-badge {
+      position: absolute; right: -6px; top: -6px; font-size: 9px; font-weight: 700;
+      color: #fff; padding: 2px 6px; border-radius: 8px; white-space: nowrap;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4); z-index: 6;
     }
+    .native-badge.api { background: #a855f7; }
+    .native-badge.nav { top: auto; bottom: -6px; background: #3b82f6; }
     /* ------------------------------ */
 </style>
 
@@ -722,112 +712,94 @@
       layersList.innerHTML = html;
     }
     
-    // Simulate real UI structure
+    function firstText(node) {
+      if (!node) return '';
+      if (node.tagName === 'TEXT_LITERAL') return (node.text || '').trim();
+      if (node.children) { for (const c of node.children) { const t = firstText(c); if (t) return t; } }
+      return '';
+    }
+
+    function nodeBadges(node) {
+      let b = '';
+      (node.apiCalls || []).forEach(a => { b += `<span class="native-badge api">⚡ ${escapeHtml(a)}</span>`; });
+      (node.navCalls || []).forEach(n => { b += `<span class="native-badge nav">➡ ${escapeHtml(n)}</span>`; });
+      return b;
+    }
+
+    function layoutStyle(lp) {
+      if (!lp) return '';
+      let s = '';
+      const spaceMap = { s: '8px', m: '12px', l: '16px', xl: '24px', xxl: '32px' };
+      const sp = (v) => typeof v === 'number' ? `${v}px` : (spaceMap[v] || v);
+      if (lp.flex !== undefined) s += `flex: ${lp.flex}; `;
+      if (lp.flexDirection) s += `flex-direction: ${lp.flexDirection}; `;
+      if (lp.justifyContent) s += `justify-content: ${lp.justifyContent}; `;
+      if (lp.alignItems) s += `align-items: ${lp.alignItems}; `;
+      if (lp.textAlign) s += `text-align: ${lp.textAlign}; `;
+      if (lp.bg) s += `background-color: ${lp.bg === 'white' ? '#fff' : lp.bg}; `;
+      if (lp.pad) s += `padding: ${sp(lp.pad)}; `;
+      if (lp.padH) s += `padding-left: ${sp(lp.padH)}; padding-right: ${sp(lp.padH)}; `;
+      if (lp.padV) s += `padding-top: ${sp(lp.padV)}; padding-bottom: ${sp(lp.padV)}; `;
+      if (lp.margin) s += `margin: ${sp(lp.margin)}; `;
+      if (lp.marginT) s += `margin-top: ${sp(lp.marginT)}; `;
+      if (lp.marginB) s += `margin-bottom: ${sp(lp.marginB)}; `;
+      if (lp.layoutH === 'center' || lp.layoutV === 'center') s += 'justify-content:center; align-items:center; ';
+      if (lp.layoutH === 'right') s += 'justify-content:flex-end; ';
+      return s;
+    }
+
+    // Render the parsed JSX tree as a clean approximation of a real mobile screen.
     function buildRealUI(nodes) {
       if (!nodes || nodes.length === 0) return '';
       let html = '';
-      
       nodes.forEach(node => {
         if (node.tagName === 'TEXT_LITERAL') {
-          html += `<div class="ui-text" style="color: #cbd5e1; font-size: 13px; margin: 2px 0;">${escapeHtml(node.text || node.content)}</div>`;
+          const t = (node.text || '').trim();
+          if (t) html += `<div class="native-text">${escapeHtml(t)}</div>`;
           return;
         }
-        
-        const tag = (node.tagName || '').toLowerCase();
-        const isButton = tag.includes('button') || tag.includes('touchable') || tag.includes('pressable');
-        const isInput = tag.includes('input') || tag.includes('textfield');
-        const isImage = tag.includes('image') || tag.includes('avatar') || tag.includes('icon');
-        const isTextWrapper = tag.includes('text') && !isInput;
-        const isScrollView = tag.includes('scroll');
-        const isRow = tag.includes('row');
-        const isCard = tag.includes('card');
-        const isHeader = tag.includes('header') || tag.includes('navbar');
 
-        let badgesHtml = '';
-        if (node.apiCalls && node.apiCalls.length > 0) {
-          node.apiCalls.forEach(api => {
-            badgesHtml += `<div class="api-badge" style="position:absolute; top:-8px; right:-8px; background:#a855f7; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.5); z-index: 5;">⚡️ ${escapeHtml(api)}</div>`;
-          });
-        }
-        if (node.navCalls && node.navCalls.length > 0) {
-          node.navCalls.forEach(nav => {
-            badgesHtml += `<div class="nav-badge" style="position:absolute; bottom:-8px; right:-8px; background:#3b82f6; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.5); z-index: 5;">➡️ ${escapeHtml(nav)}</div>`;
-          });
-        }
+        const tag = node.tagName || '';
+        const lc = tag.toLowerCase();
+        const isModal = /(modal|overlay|popup|dialog|sheet|drawer|snackbar|toast|tooltip)/.test(lc);
+        const isButton = !isModal && /(button|touchable|pressable|btn)/.test(lc);
+        const isInput = !isButton && /(textinput|input|textfield|searchbar)/.test(lc);
+        const isImage = /(image|avatar|icon|logo|thumbnail|photo|picture)/.test(lc);
+        const isTextWrapper = (lc.includes('text') || lc.includes('label') || lc.includes('title')) && !isInput && !isButton;
+        const isScrollView = /(scroll|flatlist|sectionlist)/.test(lc);
+        const isRow = lc.includes('row');
+        const isCard = lc.includes('card') || lc.includes('tile');
+        const isHeader = /(header|navbar|appbar|topbar)/.test(lc);
 
+        const badges = nodeBadges(node);
+        const tip = ' title="<' + escapeHtml(tag) + '>"';
+        const style = layoutStyle(node.layoutProps);
+        const inner = buildRealUI(node.children);
+        const label = firstText(node);
 
-        // Translate layoutProps into CSS
-        let dynamicStyle = "";
-        if (node.layoutProps) {
-          const lp = node.layoutProps;
-          if (lp.flex !== undefined) dynamicStyle += `flex: ${lp.flex}; `;
-          if (lp.flexDirection) dynamicStyle += `flex-direction: ${lp.flexDirection}; `;
-          if (lp.justifyContent) dynamicStyle += `justify-content: ${lp.justifyContent}; `;
-          if (lp.alignItems) dynamicStyle += `align-items: ${lp.alignItems}; `;
-          if (lp.textAlign) dynamicStyle += `text-align: ${lp.textAlign}; `;
-          if (lp.bg) dynamicStyle += `background-color: ${lp.bg === 'white' ? '#fff' : lp.bg}; `;
-          
-          const spaceMap = { s: '8px', m: '12px', l: '16px', xl: '24px', xxl: '32px' };
-          const getSp = (val) => typeof val === 'number' ? `${val}px` : (spaceMap[val] || val);
-          
-          if (lp.padH) { const sp = getSp(lp.padH); dynamicStyle += `padding-left: ${sp}; padding-right: ${sp}; `; }
-          if (lp.padV) { const sp = getSp(lp.padV); dynamicStyle += `padding-top: ${sp}; padding-bottom: ${sp}; `; }
-          if (lp.pad) { const sp = getSp(lp.pad); dynamicStyle += `padding: ${sp}; `; }
-          
-          if (lp.marginT) dynamicStyle += `margin-top: ${getSp(lp.marginT)}; `;
-          if (lp.marginB) dynamicStyle += `margin-bottom: ${getSp(lp.marginB)}; `;
-          if (lp.marginL) dynamicStyle += `margin-left: ${getSp(lp.marginL)}; `;
-          if (lp.marginR) dynamicStyle += `margin-right: ${getSp(lp.marginR)}; `;
-          if (lp.margin) dynamicStyle += `margin: ${getSp(lp.margin)}; `;
-          
-          if (lp.layoutH === 'center') dynamicStyle += `justify-content: center; align-items: center; `;
-          if (lp.layoutH === 'right') dynamicStyle += `justify-content: flex-end; align-items: center; `;
-          if (lp.layoutV === 'center') dynamicStyle += `justify-content: center; align-items: center; `;
-        }
-        
-        // Add dynamic style to all containers
-        const innerContent = buildRealUI(node.children);
-        
-        
-        // Subtle tag pill
-        const safeTag = escapeHtml(node.tagName);
-        const tagLabel = `<div class="tag-pill">&lt;${safeTag}&gt;</div>`;
-
-        // We wrap everything in relative divs so badges position correctly
-        if (isTextWrapper) {
-          html += `<div class="native-text" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent}</div>`;
+        if (isModal) {
+          // Overlays are hidden until triggered — show a subtle chip, not a giant element.
+          html += `<div class="native-modal-chip" style="${style}"${tip}>${badges}▢ ${escapeHtml(tag)}</div>`;
         } else if (isButton) {
-          html += `<div class="native-btn" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent || safeTag}</div>`;
+          html += `<div class="native-btn" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : '<span class="native-skel"></span>'}</div>`;
         } else if (isInput) {
-          html += `<div class="native-input" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent || safeTag}</div>`;
+          html += `<div class="native-input" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : 'Input field'}</div>`;
         } else if (isImage) {
-          html += `<div style="background: #e2e8f0; border-radius: var(--n-radius); height: 120px; display: flex; align-items: center; justify-content: center; color: #94a3b8; position:relative; overflow:hidden; ${dynamicStyle}">${badgesHtml}${tagLabel}🖼 ${safeTag}</div>`;
+          html += `<div class="native-image" style="${style}"${tip}>${badges}<span style="font-size:26px;opacity:.6;">🖼</span></div>`;
         } else if (isHeader) {
-          html += `<div class="native-header" style="${dynamicStyle}">${badgesHtml}${tagLabel}${innerContent || safeTag}</div>`;
+          html += `<div class="native-subheader" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : inner}</div>`;
+        } else if (isTextWrapper) {
+          html += `<div class="native-text" style="${style}"${tip}>${badges}${inner || (label ? escapeHtml(label) : '')}</div>`;
         } else {
-          // View / ScrollView / Container
-          let flexStyle = `display: flex; flex-direction: column; position: relative; ${dynamicStyle}`;
-          let classList = "native-container";
-          
-          if (isCard) classList = classList.replace("native-container", "native-card");
-          if (isScrollView) {
-             flexStyle += " overflow-y: auto; flex: 1;";
-             classList += " native-scroll";
-          }
-          if (isRow) flexStyle += " flex-direction: row; align-items: flex-start; gap: 8px; flex-wrap: wrap;";
-
-          html += `<div class="${classList}" style="${flexStyle}">
-            ${badgesHtml}
-            ${tagLabel}
-            <div style="display: flex; flex-direction: ${isRow ? 'row' : 'column'}; width: 100%; gap: ${isRow ? '8px' : '0'};">
-                ${innerContent}
-            </div>
-          </div>`;
+          let s = `display:flex; flex-direction:${isRow ? 'row' : 'column'}; gap:10px; position:relative; ${style}`;
+          if (isScrollView) s += ' overflow-y:auto;';
+          if (isRow) s += ' align-items:flex-start; flex-wrap:wrap;';
+          const cls = isCard ? 'native-card' : 'native-box';
+          html += `<div class="${cls}" style="${s}"${tip}>${badges}${inner}</div>`;
         }
       });
       return html;
     }
-    
     function renderCanvas(screensToShow, showApis) {
       const isDarkModeUI = document.getElementById('dark-mode-ui').checked;
       let nodesHtml = '';
@@ -836,17 +808,20 @@
         const pos = positions.screens[s.screen];
         const uiHtml = buildRealUI(s.uiTree);
         const name = s.screen.split('/').pop();
-        
-        // Add a prominent header inside the screen to clearly show the filename
-        
-        
+        const title = name.replace(/\.(t|j)sx?$/, '');
+
         nodesHtml += `
           <div class="artboard native-device ${isDarkModeUI ? 'dark-mode' : ''}" style="left: ${pos.x}px; top: ${pos.y}px; width: ${ARTBOARD_W}px; height: ${ARTBOARD_H}px; padding:0; display:flex; flex-direction:column;" id="node-${s.screen.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="selectNode('screen', '${jsAttr(s.screen)}')">
             <div class="artboard-title" style="top: -32px; color: var(--text);">${escapeHtml(name)}</div>
-            <div class="native-header" style="border-radius: 32px 32px 0 0;">${escapeHtml(name.replace('.js', ''))}</div>
-            <div style="flex: 1; overflow-y: auto; background: var(--n-bg); position: relative; padding: 16px;">
-              ${uiHtml || '<div style="color:var(--n-text-muted);text-align:center;margin-top:40px;">No UI structure parsed</div>'}
+            <div class="native-statusbar">
+              <span class="sb-time">9:41</span>
+              <span class="sb-right"><span class="sb-signal"></span><span class="sb-wifi"></span><span class="sb-batt"></span></span>
             </div>
+            <div class="native-appbar">${escapeHtml(title)}</div>
+            <div class="native-screen">
+              ${uiHtml || '<div style="color:var(--n-text-muted);text-align:center;margin-top:60px;font-size:13px;">No UI structure parsed</div>'}
+            </div>
+            <div class="native-homebar"></div>
             ${showApis ? '<div class="node-anchor anchor-right"></div>' : ''}
           </div>
         `;
