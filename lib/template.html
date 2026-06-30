@@ -167,6 +167,12 @@
     /* Bezier curves */
     .edge { fill: none; stroke: #555; stroke-width: 2px; transition: stroke 0.2s, stroke-width 0.2s; }
     .edge.active { stroke: var(--primary); stroke-width: 3px; }
+
+    /* Navigation flow edges */
+    .flow-edge { fill: none; stroke: #8b5cf6; stroke-width: 4px; opacity: 0.22; transition: opacity 0.15s, stroke 0.15s; }
+    .flow-edge.dim { opacity: 0.04; }
+    .flow-edge.out { stroke: #0ea5e9; stroke-width: 7px; opacity: 1; }
+    .flow-edge.in  { stroke: #10b981; stroke-width: 7px; opacity: 1; }
     
     /* Right Sidebar (Inspector) */
     .inspector {
@@ -573,34 +579,126 @@
       positions.screens = {};
       positions.apis = {};
 
-      // Grid Layout for Screens
-      let cols = Math.ceil(Math.sqrt(screensToShow.length));
-      if (cols > 6) cols = 6; // Max 6 columns
-      
-      let curCol = 0, curRow = 0;
-      const xSpacing = 450;
-      const ySpacing = 900;
-      
-      screensToShow.forEach((screenObj) => {
-        positions.screens[screenObj.screen] = { x: 100 + (curCol * xSpacing), y: 100 + (curRow * ySpacing) };
-        curCol++;
-        if (curCol >= cols) { curCol = 0; curRow++; }
-      });
-      
-      let apiY = 100;
-      const apiX = 100 + (cols * xSpacing) + 200; // Place APIs to the right of the screen grid
-      
+      // Lay screens out as a navigation flow (left -> right by reachability).
+      const { maxX, maxY } = layoutFlow(screensToShow);
+      let boundX = maxX + ARTBOARD_W + 200;
+      let boundY = maxY + ARTBOARD_H + 200;
+
+      // Place API nodes to the right of the whole flow.
       if (showApis) {
+        let apiY = 100;
+        const apiX = maxX + ARTBOARD_W + 400;
         Object.values(data.apiRegistry).forEach((apiObj) => {
           if (!apiObj.screens || apiObj.screens.length === 0) return;
           positions.apis[apiObj.funcName] = { x: apiX, y: apiY };
           apiY += 150;
         });
+        boundX = apiX + 400;
+        boundY = Math.max(boundY, apiY + 200);
       }
-      
+
+      // Size the canvas layer to fit all content (was a fixed 10000px box that
+      // clipped large projects).
+      canvasLayer.style.width = Math.max(2000, boundX) + 'px';
+      canvasLayer.style.height = Math.max(2000, boundY) + 'px';
+
       renderLayers(screensToShow, showApis);
       renderCanvas(screensToShow, showApis);
       setupPanZoom();
+    }
+
+    // Build the navigation edge list among the currently shown screens.
+    function flowEdges(screensToShow) {
+      const nodeSet = new Set(screensToShow.map(s => s.screen));
+      return ((data.navGraph && data.navGraph.edges) || [])
+        .filter(e => nodeSet.has(e.from) && nodeSet.has(e.to) && e.from !== e.to);
+    }
+
+    // Layered (left->right) layout: layer = longest path from a source, with a
+    // cycle guard so back-navigation doesn't create infinite loops. Orphans
+    // (screens with no navigation edges) drop into a grid band below.
+    function layoutFlow(screensToShow) {
+      const yStep = ARTBOARD_H + 120;
+      const margin = 100;
+
+      const edges = flowEdges(screensToShow);
+      const preds = {}, degree = {};
+      screensToShow.forEach(s => { preds[s.screen] = []; degree[s.screen] = 0; });
+      edges.forEach(e => { preds[e.to].push(e.from); degree[e.from]++; degree[e.to]++; });
+
+      const layer = {}, state = {};
+      function calc(n) {
+        if (state[n] === 2) return layer[n];
+        if (state[n] === 1) return 0; // back-edge / cycle: ignore its contribution
+        state[n] = 1;
+        let max = -1;
+        for (const p of preds[n]) max = Math.max(max, calc(p));
+        state[n] = 2;
+        return (layer[n] = max + 1);
+      }
+      screensToShow.forEach(s => { if (degree[s.screen] > 0) calc(s.screen); });
+
+      const layers = {};
+      let maxLayer = 0;
+      screensToShow.forEach(s => {
+        if (degree[s.screen] === 0) return;
+        const L = layer[s.screen] || 0;
+        (layers[L] = layers[L] || []).push(s.screen);
+        if (L > maxLayer) maxLayer = L;
+      });
+
+      // Order within each layer: stable by name, then one barycenter sweep to
+      // pull each node near the average position of its predecessors.
+      const orderIndex = {};
+      Object.keys(layers).forEach(L => {
+        layers[L].sort();
+        layers[L].forEach((n, i) => { orderIndex[n] = i; });
+      });
+      const bary = (n) => {
+        const ps = preds[n];
+        let sum = 0, c = 0;
+        ps.forEach(p => { if (orderIndex[p] !== undefined) { sum += orderIndex[p]; c++; } });
+        return c ? sum / c : (orderIndex[n] || 0);
+      };
+      for (let L = 1; L <= maxLayer; L++) {
+        if (!layers[L]) continue;
+        layers[L].sort((a, b) => bary(a) - bary(b));
+        layers[L].forEach((n, i) => { orderIndex[n] = i; });
+      }
+
+      // Place each layer in its own x-band; tall layers wrap into sub-columns
+      // so no single column runs thousands of pixels tall.
+      const MAX_PER_COL = 12;
+      const subColStep = ARTBOARD_W + 90;
+      const layerGap = 220;
+      let runX = margin, maxX = margin, maxY = margin;
+      Object.keys(layers).map(Number).sort((a, b) => a - b).forEach(L => {
+        const arr = layers[L];
+        const subCols = Math.ceil(arr.length / MAX_PER_COL);
+        arr.forEach((n, i) => {
+          const x = runX + Math.floor(i / MAX_PER_COL) * subColStep;
+          const y = margin + (i % MAX_PER_COL) * yStep;
+          positions.screens[n] = { x, y };
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        });
+        runX += subCols * subColStep + layerGap;
+      });
+
+      // Orphans: screens unconnected to the flow, in a grid band below.
+      const orphans = screensToShow.filter(s => degree[s.screen] === 0).map(s => s.screen);
+      if (orphans.length) {
+        const cols = Math.max(6, Math.ceil(Math.sqrt(orphans.length)));
+        const orphanY = maxY + yStep * 1.5;
+        orphans.forEach((n, i) => {
+          const x = margin + (i % cols) * subColStep;
+          const y = orphanY + Math.floor(i / cols) * yStep;
+          positions.screens[n] = { x, y };
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        });
+      }
+      return { maxX, maxY };
     }
     
     function renderLayers(screensToShow, showApis) {
@@ -772,65 +870,66 @@
       drawEdges(showApis);
     }
     
-    function drawEdges(showApis) {
-      if (!showApis) { svgCanvas.innerHTML = ''; return; }
-      
-      let svgHtml = '';
-      data.screensMapping.forEach(s => {
-        if (s.calls.length === 0) return;
-        const pos1 = positions.screens[s.screen];
-        if (!pos1) return;
-        
-        const startX = pos1.x + ARTBOARD_W; // artboard right edge
-        const startY = pos1.y + ARTBOARD_H / 2; // vertical middle
+    const EDGE_DEFS = `<defs>
+      <marker id="ah" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L16,8 L0,16 z" fill="#8b5cf6"/></marker>
+      <marker id="ah-out" markerWidth="18" markerHeight="18" refX="14" refY="9" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L18,9 L0,18 z" fill="#0ea5e9"/></marker>
+      <marker id="ah-in" markerWidth="18" markerHeight="18" refX="14" refY="9" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L18,9 L0,18 z" fill="#10b981"/></marker>
+    </defs>`;
 
-        s.calls.forEach(call => {
-          const pos2 = positions.apis[call.funcName];
-          if (!pos2) return;
-          
-          const endX = pos2.x;
-          const endY = pos2.y + 30;
-          
-          const cX1 = startX + (endX - startX) / 2;
-          const path = `M ${startX} ${startY} C ${cX1} ${startY}, ${cX1} ${endY}, ${endX} ${endY}`;
-          const isSelected = selectedNodeId === s.screen || selectedNodeId === call.funcName;
-          const activeClass = isSelected ? 'active' : '';
-          
-          svgHtml += `<path class="edge ${activeClass}" d="${path}" id="edge-${s.screen.replace(/[^a-zA-Z0-9]/g,'_')}-${call.funcName.replace(/[^a-zA-Z0-9]/g,'_')}" />`;
-        });
-      });
-      
-      const showNavs = document.getElementById('show-navs') ? document.getElementById('show-navs').checked : false;
-      if (showNavs) {
+    // Bezier between two artboards: leaves the side facing the target and
+    // enters the target's facing side, so forward and back edges stay readable.
+    function edgePath(p1, p2) {
+      const forward = p2.x >= p1.x;
+      const sx = forward ? p1.x + ARTBOARD_W : p1.x;
+      const ex = forward ? p2.x : p2.x + ARTBOARD_W;
+      const sy = p1.y + ARTBOARD_H / 2;
+      const ey = p2.y + ARTBOARD_H / 2;
+      const dx = Math.max(80, Math.abs(ex - sx) * 0.4);
+      const c1x = forward ? sx + dx : sx - dx;
+      const c2x = forward ? ex - dx : ex + dx;
+      return `M ${sx} ${sy} C ${c1x} ${sy}, ${c2x} ${ey}, ${ex} ${ey}`;
+    }
+
+    function drawEdges(showApis) {
+      let svgHtml = EDGE_DEFS;
+
+      // API edges (screen -> API node), only in API mode.
+      if (showApis) {
         data.screensMapping.forEach(s => {
-          if (!s.navs || s.navs.length === 0) return;
+          if (s.calls.length === 0) return;
           const pos1 = positions.screens[s.screen];
           if (!pos1) return;
-          
           const startX = pos1.x + ARTBOARD_W;
-          const startY = pos1.y + 100; // Anchor a bit higher
-          
-          s.navs.forEach(nav => {
-            const targetScreen = data.screensMapping.find(ts => 
-              ts.screen.endsWith('/' + nav + '.js') || 
-              ts.screen.endsWith('/' + nav + '.tsx') || 
-              ts.screen.includes('/' + nav + '/') ||
-              ts.screen.toLowerCase().includes(nav.toLowerCase()) // loose fallback
-            );
-            
-            if (!targetScreen) return;
-            const pos2 = positions.screens[targetScreen.screen];
+          const startY = pos1.y + ARTBOARD_H / 2;
+          s.calls.forEach(call => {
+            const pos2 = positions.apis[call.funcName];
             if (!pos2) return;
-            
-            const endX = pos2.x;
-            const endY = pos2.y + 100;
-            const cX1 = startX + Math.abs(endX - startX) / 2;
+            const endX = pos2.x, endY = pos2.y + 30;
+            const cX1 = startX + (endX - startX) / 2;
             const path = `M ${startX} ${startY} C ${cX1} ${startY}, ${cX1} ${endY}, ${endX} ${endY}`;
-            
-            svgHtml += `<path class="edge" style="stroke: #8b5cf6; stroke-dasharray: 6,4;" d="${path}" />`;
+            const isSelected = selectedNodeId === s.screen || selectedNodeId === call.funcName;
+            svgHtml += `<path class="edge ${isSelected ? 'active' : ''}" d="${path}" />`;
           });
         });
       }
+
+      // Navigation flow edges (screen -> screen). Independent of API mode.
+      const showNavs = document.getElementById('show-navs') && document.getElementById('show-navs').checked;
+      if (showNavs && data.navGraph && data.navGraph.edges) {
+        const hasSel = selectedNodeId && positions.screens[selectedNodeId];
+        data.navGraph.edges.forEach(e => {
+          const p1 = positions.screens[e.from], p2 = positions.screens[e.to];
+          if (!p1 || !p2) return;
+          let cls = 'flow-edge', marker = 'ah';
+          if (hasSel) {
+            if (e.from === selectedNodeId) { cls += ' out'; marker = 'ah-out'; }
+            else if (e.to === selectedNodeId) { cls += ' in'; marker = 'ah-in'; }
+            else { cls += ' dim'; }
+          }
+          svgHtml += `<path class="${cls}" marker-end="url(#${marker})" d="${edgePath(p1, p2)}" />`;
+        });
+      }
+
       svgCanvas.innerHTML = svgHtml;
     }
     

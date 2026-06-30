@@ -121,6 +121,73 @@ export default function NoiseScreen() {
 }
 `);
 
+// ---- Navigation flow fixtures: stacks register screens; screens navigate to
+// route names that may be leaf screens or nested stacks. ----
+write('screens/SplashScreen.tsx', `
+import React from 'react';
+export default function SplashScreen({ navigation }) {
+  React.useEffect(() => { navigation.replace('HomeStack'); }, []);
+  return (<View><Text>Splash</Text></View>);
+}
+`);
+write('screens/DashScreen.tsx', `
+import React from 'react';
+export default function DashScreen({ navigation }) {
+  const goSettings = () => navigation.navigate('SettingsStack');
+  const goOrphan = () => navigation.navigate('OrphanScreen');
+  return (<View><Button onPress={goSettings}>S</Button><Button onPress={goOrphan}>O</Button></View>);
+}
+`);
+write('screens/PrefScreen.tsx', `
+import React from 'react';
+export default function PrefScreen() { return (<View><Text>Prefs</Text></View>); }
+`);
+write('screens/OrphanScreen.tsx', `
+import React from 'react';
+export default function OrphanScreen() { return (<View><Text>Orphan</Text></View>); }
+`);
+
+// AppStack registers Splash (leaf) and HomeStack (nested navigator)
+write('navigations/AppStack.tsx', `
+import SplashScreen from '../screens/SplashScreen';
+import HomeStack from './HomeStack';
+const Stack = createNativeStackNavigator();
+export default function AppStack() {
+  return (
+    <Stack.Navigator initialRouteName="SplashScreen">
+      <Stack.Screen name="SplashScreen" component={SplashScreen} />
+      <Stack.Screen name="HomeStack" component={HomeStack} />
+    </Stack.Navigator>
+  );
+}
+`);
+// HomeStack is a Tab navigator whose entry is DashScreen; also nests SettingsStack
+write('navigations/HomeStack.tsx', `
+import DashScreen from '../screens/DashScreen';
+import SettingsStack from './SettingsStack';
+const Tab = createBottomTabNavigator();
+export default function HomeStack() {
+  return (
+    <Tab.Navigator initialRouteName="DashScreen">
+      <Tab.Screen name="DashScreen" component={DashScreen} />
+      <Tab.Screen name="SettingsStack" component={SettingsStack} />
+    </Tab.Navigator>
+  );
+}
+`);
+// SettingsStack's first/entry screen is PrefScreen
+write('navigations/SettingsStack.tsx', `
+import PrefScreen from '../screens/PrefScreen';
+const Stack = createNativeStackNavigator();
+export default function SettingsStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="PrefScreen" component={PrefScreen} />
+    </Stack.Navigator>
+  );
+}
+`);
+
 const result = runParser({
   srcDir: src,
   apiDirs: [path.join(src, 'api')],
@@ -245,6 +312,43 @@ test('mockResJson: extends merges base type fields', () => {
   const m = api.listRes.mockResJson; // ListRes extends Profile { total }
   assert.strictEqual(typeof m.total, 'number');
   assert.ok(m.user && typeof m.user === 'object', 'inherited Profile.user present');
+});
+
+// ---- Navigation flow graph -----------------------------------------------
+
+const edges = (result.navGraph && result.navGraph.edges) || [];
+const hasEdge = (fromSuffix, toSuffix) =>
+  edges.some(e => e.from.endsWith(fromSuffix) && e.to.endsWith(toSuffix));
+
+test('navGraph exists with edges', () => {
+  assert.ok(result.navGraph, 'navGraph present');
+  assert.ok(edges.length > 0, 'should resolve some edges');
+});
+
+test('navigate to a stack resolves to the stack entry screen (initialRouteName)', () => {
+  // SplashScreen -> navigate('HomeStack'); HomeStack initialRouteName=DashScreen
+  assert.ok(hasEdge('SplashScreen.tsx', 'DashScreen.tsx'),
+    'Splash should link to HomeStack entry DashScreen, not a HomeStack file');
+});
+
+test('nested stack resolves to its first registered screen', () => {
+  // DashScreen -> navigate('SettingsStack'); SettingsStack first screen = PrefScreen
+  assert.ok(hasEdge('DashScreen.tsx', 'PrefScreen.tsx'),
+    'SettingsStack should resolve to PrefScreen');
+});
+
+test('unregistered route falls back to matching screen filename', () => {
+  // DashScreen -> navigate('OrphanScreen'); not in any navigator
+  assert.ok(hasEdge('DashScreen.tsx', 'OrphanScreen.tsx'),
+    'route matching a screen filename should still link');
+});
+
+test('edges never point a screen at itself, and target real screens', () => {
+  const screenSet = new Set(result.screensMapping.map(s => s.screen));
+  for (const e of edges) {
+    assert.notStrictEqual(e.from, e.to, 'no self-edges');
+    assert.ok(screenSet.has(e.to), 'edge target is a known screen: ' + e.to);
+  }
 });
 
 // ---- Cleanup + report ----------------------------------------------------
