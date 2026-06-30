@@ -492,7 +492,8 @@ async function findAvailablePort(startPort) {
             // Get current mock registry
       if (req.method === 'GET' && parsedUrl.pathname === '/api/mock-registry') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ apiRegistry: currentMockApiRegistry || {} }));
+        // Include saved overrides so the playground can show them after a reload.
+        res.end(JSON.stringify({ apiRegistry: currentMockApiRegistry || {}, customConfigs: mockCustomConfigs || {} }));
         return;
       }
 

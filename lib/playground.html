@@ -172,6 +172,7 @@
     }
     
     .endpoint-path { font-family: monospace; font-size: 1rem; flex: 1; color: #e2e8f0; }
+    .override-badge { font-size: 0.7rem; font-weight: 700; color: var(--warning); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); padding: 3px 8px; border-radius: 999px; margin-right: 12px; white-space: nowrap; }
     .endpoint-func { font-size: 0.85rem; color: var(--text-muted); margin-left: 16px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;}
     
     .endpoint-body {
@@ -298,6 +299,7 @@
     let apiData = {};
     let groupedApis = {};
     let editors = {}; // Store ace editor instances
+    let customConfigs = {}; // saved per-endpoint overrides (from the server)
 
     // Escape for HTML text content.
     function esc(s) {
@@ -328,6 +330,7 @@
         const res = await fetch('/api/mock-registry');
         const data = await res.json();
         apiData = data.apiRegistry || {};
+        customConfigs = data.customConfigs || {};
         groupApis();
         renderSidebar();
         renderApiList();
@@ -400,10 +403,23 @@
         groupedApis[feature].forEach((api) => {
           let reqMock = `// Type: ${api.reqType}\n/*\n${api.reqTypeDecl}\n*/\n`;
           reqMock += api.mockReqJson ? JSON.stringify(api.mockReqJson, null, 2) : "{}";
-          
-          let resMock = `// Type: ${api.resType}\n/*\n${api.resTypeDecl}\n*/\n`;
-          resMock += api.mockResJson ? JSON.stringify(api.mockResJson, null, 2) : "{}";
-          
+
+          // Generated response mock (also the Reset target).
+          const generatedRes = `// Type: ${api.resType}\n/*\n${api.resTypeDecl}\n*/\n` +
+            (api.mockResJson ? JSON.stringify(api.mockResJson, null, 2) : "{}");
+
+          // If this endpoint has a saved override, show it in the editor instead.
+          const saved = customConfigs[api.endpoint];
+          let resMock = generatedRes;
+          let initialStatus = '200';
+          if (saved) {
+            initialStatus = String(saved.statusCode || 200);
+            const savedBody = saved.resBody != null
+              ? (typeof saved.resBody === 'string' ? saved.resBody : JSON.stringify(saved.resBody, null, 2))
+              : '';
+            resMock = `// Saved override\n${savedBody}`;
+          }
+
           const method = (api.method || 'GET').toLowerCase();
           // Include the method so GET/POST on the same path don't collide.
           const endpointId = (method + '_' + api.endpoint).replace(/[^a-zA-Z0-9]/g, '_');
@@ -418,6 +434,7 @@
               <div class="method-badge ${esc(method)}">${esc(method.toUpperCase())}</div>
               ${api.baseUrl ? `<div class="base-url-badge">${esc(api.baseUrl)}</div>` : ''}
               <div class="endpoint-path">${esc(api.endpoint)}</div>
+              ${saved ? '<span class="override-badge" title="This endpoint has a saved override">● overridden</span>' : ''}
               <div class="endpoint-func">${esc(api.funcName)}</div>
               <button class="endpoint-open-file" onclick="openFile(event, '${jsAttr(api.file)}')">📄 Open File</button>
             </div>
@@ -436,7 +453,7 @@
               <div class="actions">
                 <div class="status-input-container">
                   <span>Status Code:</span>
-                  <input type="number" id="status-${endpointId}" class="status-input" value="200" />
+                  <input type="number" id="status-${endpointId}" class="status-input" value="${esc(initialStatus)}" />
                 </div>
                 <button class="copy-url-btn" onclick="copyUrl(event, '${epAttr}')">🔗 Copy URL</button>
                 <button class="btn btn-secondary" onclick="resetConfig(event, '${epAttr}', '${endpointId}')" title="Restore the original generated mock">↺ Reset</button>
@@ -448,9 +465,11 @@
           `;
           section.appendChild(div);
           
-          // We will initialize editors when the accordion opens to save performance
-          editors[`req-editor-${endpointId}`] = { value: reqMock, instance: null };
-          editors[`res-editor-${endpointId}`] = { value: resMock, instance: null };
+          // We will initialize editors when the accordion opens to save performance.
+          // `value` is what the editor shows (override if saved); `generated` is
+          // the original mock that Reset restores to.
+          editors[`req-editor-${endpointId}`] = { value: reqMock, generated: reqMock, instance: null };
+          editors[`res-editor-${endpointId}`] = { value: resMock, generated: generatedRes, instance: null };
         });
         
         container.appendChild(section);
@@ -516,6 +535,9 @@
            });
            
            if (req.ok) {
+               // Keep local state in sync so the override persists across reopen.
+               customConfigs[endpoint] = { endpoint, statusCode, resBody };
+               if (editor) editor.value = resText;
                btn.textContent = 'Saved!';
                btn.style.background = 'var(--success)';
                setTimeout(() => {
@@ -539,8 +561,10 @@
        const original = btn.textContent;
        const reqE = editors[`req-editor-${endpointId}`];
        const resE = editors[`res-editor-${endpointId}`];
-       if (resE && resE.instance) resE.instance.setValue(resE.value, -1);
-       if (reqE && reqE.instance) reqE.instance.setValue(reqE.value, -1);
+       // Restore editors to the generated mock and forget the shown override.
+       if (resE) { resE.value = resE.generated; if (resE.instance) resE.instance.setValue(resE.generated, -1); }
+       if (reqE) { reqE.value = reqE.generated; if (reqE.instance) reqE.instance.setValue(reqE.generated, -1); }
+       delete customConfigs[endpoint];
        const statusInput = document.getElementById(`status-${endpointId}`);
        if (statusInput) statusInput.value = '200';
        const outBlock = document.getElementById(`out-${endpointId}`);
