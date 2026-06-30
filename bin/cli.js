@@ -255,6 +255,34 @@ async function findAvailablePort(startPort) {
     let currentMockApiRegistry = {};
     let mockCustomConfigs = {};
     let currentProjectSrcDir = '';
+    let currentProjectPath = '';
+
+    // Persist saved mock overrides next to the scanned project so they survive a
+    // server restart (per-project file; safe to commit or .gitignore).
+    const MOCK_OVERRIDES_FILE = '.api-mapper-mocks.json';
+    function overridesFileFor(projectPath) {
+      return projectPath ? path.join(projectPath, MOCK_OVERRIDES_FILE) : null;
+    }
+    function loadMockOverrides(projectPath) {
+      const file = overridesFileFor(projectPath);
+      if (!file || !fs.existsSync(file)) return {};
+      try {
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+        return (data && typeof data === 'object') ? data : {};
+      } catch (e) {
+        console.warn(`⚠️ Could not read saved mocks (${file}): ${e.message}`);
+        return {};
+      }
+    }
+    function persistMockOverrides() {
+      const file = overridesFileFor(currentProjectPath);
+      if (!file) return;
+      try {
+        fs.writeFileSync(file, JSON.stringify(mockCustomConfigs, null, 2), 'utf8');
+      } catch (e) {
+        console.warn(`⚠️ Could not save mocks (${file}): ${e.message}`);
+      }
+    }
 
     const server = http.createServer((req, res) => {
       // Reject cross-origin / rebinding access before doing any work.
@@ -289,10 +317,12 @@ async function findAvailablePort(startPort) {
             if (payload.endpoint && payload.reset) {
               // Reset: drop the saved override so /mock serves the generated mock.
               delete mockCustomConfigs[payload.endpoint];
+              persistMockOverrides();
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ success: true, reset: true }));
             } else if (payload.endpoint) {
               mockCustomConfigs[payload.endpoint] = payload;
+              persistMockOverrides();
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ success: true }));
             } else {
@@ -466,6 +496,11 @@ async function findAvailablePort(startPort) {
             // them as-is rather than re-deriving from the flattened decl text.
             currentMockApiRegistry = scanResult.apiRegistry;
             currentProjectSrcDir = scanResult.srcDir || '';
+            currentProjectPath = projectPath;
+            // Restore this project's saved mock overrides from disk.
+            mockCustomConfigs = loadMockOverrides(projectPath);
+            const restored = Object.keys(mockCustomConfigs).length;
+            if (restored) console.log(`↺ Restored ${restored} saved mock override(s) from ${overridesFileFor(projectPath)}`);
 
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify(scanResult));
