@@ -7,7 +7,6 @@ const net = require('net');
 const os = require('os');
 const { execFile } = require('child_process');
 const { runParser } = require('../lib/parser');
-const { generateMockFromTypeDecl } = require('../lib/mock-generator');
 
 // Cap request bodies so an unauthenticated client can't exhaust memory.
 const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
@@ -457,21 +456,12 @@ async function findAvailablePort(startPort) {
               projectName: path.basename(projectPath)
             });
             
-            // Update Mock Server Registry
+            // Update Mock Server Registry. mockReqJson/mockResJson are already
+            // computed by the parser (with full type resolution), so we use
+            // them as-is rather than re-deriving from the flattened decl text.
             currentMockApiRegistry = scanResult.apiRegistry;
             currentProjectSrcDir = scanResult.srcDir || '';
-            
-            // Pre-generate nice JSON for UI
-            for (const key in currentMockApiRegistry) {
-               const api = currentMockApiRegistry[key];
-               if (api.reqTypeDecl) {
-                 api.mockReqJson = generateMockFromTypeDecl(api.reqTypeDecl);
-               }
-               if (api.resTypeDecl) {
-                 api.mockResJson = generateMockFromTypeDecl(api.resTypeDecl);
-               }
-            }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify(scanResult));
           } catch (e) {
@@ -518,27 +508,29 @@ async function findAvailablePort(startPort) {
            }
         }
         
-        if (matchedApi && matchedApi.resTypeDecl) {
+        const custom = mockCustomConfigs[mockPath];
+        const hasMock = matchedApi && (custom || matchedApi.mockResJson != null);
+
+        if (hasMock) {
            try {
               let statusCode = 200;
               let mockResponse;
-              
-              // Check if there is a custom configuration saved for this endpoint
-              if (mockCustomConfigs[mockPath]) {
-                 const custom = mockCustomConfigs[mockPath];
+
+              // A saved custom configuration overrides the generated mock.
+              if (custom) {
                  statusCode = parseInt(custom.statusCode) || 200;
                  if (custom.resBody) {
                     try {
                         mockResponse = JSON.parse(custom.resBody);
                     } catch(e) {
-                        mockResponse = custom.resBody; // fallback to string if not JSON
+                        mockResponse = custom.resBody; // fall back to string if not JSON
                     }
                  }
               }
-              
-              // Fallback to generated if no custom body
-              if (!mockResponse) {
-                 mockResponse = generateMockFromTypeDecl(matchedApi.resTypeDecl);
+
+              // Otherwise serve the type-resolved mock the parser pre-computed.
+              if (mockResponse === undefined) {
+                 mockResponse = matchedApi.mockResJson != null ? matchedApi.mockResJson : {};
               }
 
               res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });

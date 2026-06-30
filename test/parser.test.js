@@ -45,6 +45,20 @@ export interface CreateRes { id: string; }
 export interface Item { id: string; label: string; }
 `);
 
+// Types with nested references, arrays-of-objects, extends, and unions —
+// the cases where the old decl-text mock generator produced wrong output.
+write('types/models.ts', `
+export interface User { id: string; name: string; age: number; role: 'admin' | 'user'; }
+export interface Address { street: string; city: string; }
+export interface Profile {
+  user: User;
+  address: Address;
+  friends: User[];
+  nickname?: string;
+}
+export interface ListRes extends Profile { total: number; }
+`);
+
 write('api/auth.ts', `
 import request from '../request';
 export const login = (data: LoginReq): Promise<LoginRes> => request.post(\`/auth/login\`, data);
@@ -54,6 +68,8 @@ export const find = (q: { term: string }): Promise<Item | null> => request.get('
 export const ping = (): Promise<{ ok: boolean }> => request.get('/ping');
 export const list = (): Promise<Array<Item>> => request.get('/list');
 export const dyn = (): Promise<void> => request.get(basePath);
+export const profile = (): Promise<Profile> => request.get('/profile');
+export const listRes = (): Promise<ListRes> => request.get('/listres');
 `);
 
 // Functional component (baseline)
@@ -129,7 +145,7 @@ console.log('parser end-to-end');
 test('discovers all named API exports', () => {
   assert.deepStrictEqual(
     Object.keys(api).sort(),
-    ['create', 'dyn', 'find', 'list', 'login', 'logout', 'ping']
+    ['create', 'dyn', 'find', 'list', 'listRes', 'login', 'logout', 'ping', 'profile']
   );
 });
 
@@ -191,6 +207,44 @@ test('object-method shorthand: api/nav resolved (regression)', () => {
 test('named-import usage uses word boundaries (no false positive)', () => {
   const s = screenBy('NoiseScreen.tsx');
   assert.deepStrictEqual(s.calls.map(c => c.funcName), [], 'login imported but never called');
+});
+
+// ---- Mock generation (matches the response type shape) -------------------
+
+test('mockResJson: flat type fields are generated', () => {
+  const m = api.login.mockResJson;
+  assert.ok(m && typeof m === 'object', 'login should have a mock object');
+  assert.strictEqual(typeof m.token, 'string'); // LoginRes { token: string }
+});
+
+test('mockResJson: nested named type is expanded, not a placeholder', () => {
+  const m = api.profile.mockResJson; // Profile
+  assert.ok(m.user && typeof m.user === 'object', 'user should be an object');
+  assert.strictEqual(typeof m.user.id, 'string');
+  assert.strictEqual(typeof m.user.name, 'string');
+  assert.strictEqual(typeof m.user.age, 'number');
+  assert.strictEqual(m.user.role, 'admin'); // literal union -> first member
+  assert.ok(!('_type' in m.user), 'must not emit a {_type} placeholder');
+});
+
+test('mockResJson: array-of-objects resolves element shape', () => {
+  const m = api.profile.mockResJson;
+  assert.ok(Array.isArray(m.friends), 'friends should be an array');
+  assert.strictEqual(typeof m.friends[0].id, 'string', 'element should be a real User');
+  assert.ok(!('_type' in m.friends[0]));
+});
+
+test('mockResJson: dependency fields do NOT leak to the top level', () => {
+  const m = api.profile.mockResJson;
+  // `street`/`city` belong to Address (nested), not to Profile itself.
+  assert.ok(!('street' in m), 'Address fields must stay nested under address');
+  assert.ok(m.address && typeof m.address.street === 'string');
+});
+
+test('mockResJson: extends merges base type fields', () => {
+  const m = api.listRes.mockResJson; // ListRes extends Profile { total }
+  assert.strictEqual(typeof m.total, 'number');
+  assert.ok(m.user && typeof m.user === 'object', 'inherited Profile.user present');
 });
 
 // ---- Cleanup + report ----------------------------------------------------
