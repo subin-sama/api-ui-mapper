@@ -50,6 +50,10 @@ export interface StatusRes {
   hasError: boolean;
   isBlocked: boolean;
   errorMessage: string;
+  resultCode: string;
+  state: string;
+  otp: string;
+  phase: 'pending' | 'completed' | 'failed';
 }
 `);
 
@@ -57,17 +61,22 @@ write('api/status.ts', `
 import request from '../request';
 export const getStatus = (): Promise<StatusRes> => request.get('/status');
 `);
-// Consuming code (outside the api dir) compares fields against specific values —
-// mocks should use them, success-biased: responseCode='00' (not error '99'),
-// httpStatus=200 (not the more-frequent error 401).
+// Consuming code (outside the api dir) checks fields in several ways — mocks
+// should reflect the happy path for all of them.
 write('utils/handlers.ts', `
 function handle(res) {
-  if (res.responseCode === '00') return 'ok';
+  if (res.responseCode === '00') return 'ok';        // equality, success vs '99'
   if (res.responseCode === '00') return 'ok2';
   if (res.responseCode === '99') return 'err';
-  if (res.httpStatus === 401) return 'unauth';
+  if (res.httpStatus === 401) return 'unauth';        // numeric, success 200 over 401
   if (res.httpStatus === 401) return 'unauth2';
   if (res.httpStatus === 200) return 'fine';
+  switch (res.resultCode) {                           // switch/case
+    case 'APPROVED': return 'a';
+    case 'DECLINED': return 'd';
+  }
+  if (res.state !== 'FAILED') return 's';             // only an error value -> avoid it
+  if (res.otp.length === 6) return 'o';               // length check
 }
 `);
 
@@ -374,6 +383,23 @@ test('mockResJson: booleans default to the happy path (positive true, negative f
   assert.strictEqual(m.hasError, false);    // negative-sense -> false
   assert.strictEqual(m.isBlocked, false);   // negative-sense -> false
   assert.strictEqual(m.errorMessage, '');   // error message empty on happy path
+});
+
+test('mockResJson: switch/case value is used (success-biased: APPROVED)', () => {
+  assert.strictEqual(api.getStatus.mockResJson.resultCode, 'APPROVED');
+});
+
+test('mockResJson: never mocks a known error value (state !== "FAILED")', () => {
+  assert.notStrictEqual(api.getStatus.mockResJson.state, 'FAILED');
+});
+
+test('mockResJson: matches a checked string length (otp.length === 6)', () => {
+  assert.strictEqual(api.getStatus.mockResJson.otp.length, 6);
+});
+
+test('mockResJson: literal union picks the happy member, not the first', () => {
+  // 'pending' | 'completed' | 'failed' -> 'completed' (success), not 'pending'
+  assert.strictEqual(api.getStatus.mockResJson.phase, 'completed');
 });
 
 test('mockResJson: extends merges base type fields', () => {
