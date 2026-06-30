@@ -286,7 +286,12 @@ async function findAvailablePort(startPort) {
         collectBody(req, res, (body) => {
           try {
             const payload = JSON.parse(body);
-            if (payload.endpoint) {
+            if (payload.endpoint && payload.reset) {
+              // Reset: drop the saved override so /mock serves the generated mock.
+              delete mockCustomConfigs[payload.endpoint];
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, reset: true }));
+            } else if (payload.endpoint) {
               mockCustomConfigs[payload.endpoint] = payload;
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ success: true }));

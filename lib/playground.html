@@ -313,6 +313,16 @@
         .replace(/"/g, '&quot;').replace(/</g, '\\x3C').replace(/\r?\n/g, '');
     }
 
+    // Strip the editor's `// Type` + `/* decl */` header to get the JSON body.
+    // The `//` strip is anchored to line starts so it never eats `//` inside a
+    // value such as "https://..." (which would corrupt the JSON).
+    function editorJsonText(text) {
+      return String(text == null ? '' : text)
+        .replace(/^[ \t]*\/\/.*$/gm, '')   // full-line // comments only
+        .replace(/\/\*[\s\S]*?\*\//, '')   // the leading /* ... */ header
+        .trim();
+    }
+
     async function fetchApiData() {
       try {
         const res = await fetch('/api/mock-registry');
@@ -429,6 +439,7 @@
                   <input type="number" id="status-${endpointId}" class="status-input" value="200" />
                 </div>
                 <button class="copy-url-btn" onclick="copyUrl(event, '${epAttr}')">🔗 Copy URL</button>
+                <button class="btn btn-secondary" onclick="resetConfig(event, '${epAttr}', '${endpointId}')" title="Restore the original generated mock">↺ Reset</button>
                 <button class="btn btn-secondary" onclick="saveConfig(event, '${epAttr}', '${endpointId}')">Save Config</button>
                 <button class="btn btn-success" onclick="tryItOut('${epAttr}', '${esc(method.toUpperCase())}', '${endpointId}')">Try it out!</button>
               </div>
@@ -481,8 +492,14 @@
        const resText = editor.instance.getValue();
        const statusCode = document.getElementById(`status-${endpointId}`).value;
 
-       // Strip comment lines/blocks so only the JSON body is persisted.
-       const resBody = resText.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+       // Strip the comment header (URL-safe) so only the JSON body is persisted.
+       const resBody = editorJsonText(resText);
+       // Warn early if the edited body isn't valid JSON, rather than silently
+       // saving something the server can't parse.
+       try { JSON.parse(resBody); } catch (e) {
+          alert('Response body is not valid JSON:\n' + e.message);
+          return;
+       }
 
        const btn = event.target;
        btn.textContent = 'Saving...';
@@ -515,6 +532,32 @@
        }
     }
 
+    // Restore the original generated mock (both editors + status) and clear any
+    // saved override on the server so /mock serves the generated mock again.
+    async function resetConfig(event, endpoint, endpointId) {
+       const btn = event.target;
+       const original = btn.textContent;
+       const reqE = editors[`req-editor-${endpointId}`];
+       const resE = editors[`res-editor-${endpointId}`];
+       if (resE && resE.instance) resE.instance.setValue(resE.value, -1);
+       if (reqE && reqE.instance) reqE.instance.setValue(reqE.value, -1);
+       const statusInput = document.getElementById(`status-${endpointId}`);
+       if (statusInput) statusInput.value = '200';
+       const outBlock = document.getElementById(`out-${endpointId}`);
+       if (outBlock) outBlock.style.display = 'none';
+       try {
+           await fetch('/api/mock-config', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ endpoint, reset: true })
+           });
+           btn.textContent = '↺ Reset!';
+           setTimeout(() => { btn.textContent = original; }, 1500);
+       } catch (e) {
+           alert('Failed to reset on server: ' + e.message);
+       }
+    }
+
     async function tryItOut(endpoint, method, indexId) {
       const outBlock = document.getElementById(`out-${indexId}`);
       outBlock.style.display = 'block';
@@ -524,7 +567,7 @@
       let reqBody = {};
       if (editors[`req-editor-${indexId}`] && editors[`req-editor-${indexId}`].instance) {
           const reqText = editors[`req-editor-${indexId}`].instance.getValue();
-          const jsonStr = reqText.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+          const jsonStr = editorJsonText(reqText);
           if (jsonStr) {
             try {
               reqBody = JSON.parse(jsonStr);

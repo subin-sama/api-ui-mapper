@@ -7,7 +7,7 @@
     "api-ui-mapper": "./bin/cli.js"
   },
   "scripts": {
-    "test": "node test/parser.test.js"
+    "test": "node test/parser.test.js && node test/playground.test.js"
   },
   "keywords": [
     "api",
