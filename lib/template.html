@@ -259,68 +259,72 @@
       z-index: 50;
     }
 
-    /* Device chrome */
+    /* --- WIREFRAME PALETTE --- */
+    :root {
+      --wf-paper: #f5f6f8; --wf-ink: #3a3f4a; --wf-muted: #8a909c;
+      --wf-line: #c5cad3; --wf-fill: #ffffff; --wf-bar: #dfe2e8;
+    }
+
+    /* Device chrome (greyscale wireframe) */
+    .native-device { background: var(--wf-paper); }
     .native-statusbar {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 28px 4px; font-size: 13px; font-weight: 700;
-      color: var(--n-text); background: var(--n-bg);
+      color: var(--wf-ink); background: var(--wf-paper);
     }
     .native-statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
-    .sb-wifi { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 11px solid var(--n-text); opacity: 0.85; }
-    .sb-signal { width: 17px; height: 11px; background: var(--n-text); opacity: 0.85;
+    .sb-wifi { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 11px solid var(--wf-ink); opacity: 0.7; }
+    .sb-signal { width: 17px; height: 11px; background: var(--wf-ink); opacity: 0.7;
       clip-path: polygon(0 100%,0 72%,22% 72%,22% 100%,34% 100%,34% 46%,56% 46%,56% 100%,68% 100%,68% 20%,90% 20%,90% 100%); }
-    .sb-batt { width: 22px; height: 11px; border: 1.5px solid var(--n-text); border-radius: 3px; position: relative; opacity: 0.85; }
-    .sb-batt::before { content: ""; position: absolute; left: 1.5px; top: 1.5px; bottom: 1.5px; width: 13px; background: var(--n-text); border-radius: 1px; }
-    .sb-batt::after { content: ""; position: absolute; right: -3.5px; top: 3px; bottom: 3px; width: 2px; background: var(--n-text); border-radius: 1px; opacity: 0.7; }
+    .sb-batt { width: 22px; height: 11px; border: 1.5px solid var(--wf-ink); border-radius: 3px; position: relative; opacity: 0.7; }
+    .sb-batt::before { content: ""; position: absolute; left: 1.5px; top: 1.5px; bottom: 1.5px; width: 13px; background: var(--wf-ink); border-radius: 1px; }
+    .sb-batt::after { content: ""; position: absolute; right: -3.5px; top: 3px; bottom: 3px; width: 2px; background: var(--wf-ink); border-radius: 1px; opacity: 0.6; }
 
     .native-appbar {
-      background: var(--n-primary); color: #fff; padding: 12px 16px 14px;
-      font-size: 17px; font-weight: 700; text-align: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.12); position: relative; z-index: 10;
+      background: var(--wf-bar); color: var(--wf-ink); padding: 12px 16px 14px;
+      font-size: 16px; font-weight: 700; text-align: center;
+      border-bottom: 1px solid var(--wf-line); position: relative; z-index: 10;
     }
     .native-screen {
-      flex: 1; overflow-y: auto; background: var(--n-bg);
+      flex: 1; overflow-y: auto; background: var(--wf-paper);
       padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; position: relative;
     }
-    .native-homebar { height: 24px; display: flex; align-items: center; justify-content: center; background: var(--n-bg); }
-    .native-homebar::after { content: ""; width: 130px; height: 5px; border-radius: 3px; background: var(--n-text); opacity: 0.32; }
+    .native-homebar { height: 24px; display: flex; align-items: center; justify-content: center; background: var(--wf-paper); }
+    .native-homebar::after { content: ""; width: 130px; height: 5px; border-radius: 3px; background: var(--wf-muted); opacity: 0.5; }
 
-    /* Mock elements */
-    .native-btn {
-      background: var(--n-primary); color: #fff; text-align: center;
-      padding: 14px; border-radius: 14px; font-weight: 600; font-size: 15px;
-      box-shadow: 0 6px 14px rgba(179, 30, 141, 0.28); position: relative;
+    /* Wireframe elements */
+    .wf-text { color: var(--wf-ink); font-size: 14px; line-height: 1.45; position: relative; }
+    .wf-line { display: block; height: 10px; border-radius: 5px; background: var(--wf-line); margin: 3px 0; }
+    .wf-subheader { color: var(--wf-ink); font-size: 16px; font-weight: 700; position: relative; }
+    .wf-btn {
+      border: 1.5px solid var(--wf-muted); border-radius: 10px; background: var(--wf-fill);
+      color: var(--wf-ink); font-weight: 600; font-size: 14px;
+      padding: 13px; display: flex; align-items: center; justify-content: center; position: relative;
     }
-    .native-input {
-      background: var(--n-input-bg); border: 1px solid var(--n-line);
-      border-radius: 12px; padding: 14px; color: var(--n-text-muted);
-      font-size: 14px; position: relative;
+    .wf-input {
+      border: 1.5px solid var(--wf-line); border-radius: 8px; background: var(--wf-fill);
+      color: var(--wf-muted); font-size: 13px; padding: 13px; position: relative;
     }
-    .native-card {
-      background: var(--n-surface); border-radius: 14px; padding: 14px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06); position: relative;
+    .wf-card { border: 1.5px solid var(--wf-line); border-radius: 10px; background: var(--wf-fill); padding: 12px; position: relative; }
+    .wf-box { position: relative; }
+    .wf-image {
+      border: 1.5px solid var(--wf-line); border-radius: 8px; background: var(--wf-fill);
+      height: 110px; position: relative;
+      background-image:
+        linear-gradient(45deg, transparent calc(50% - 1px), var(--wf-line) 50%, transparent calc(50% + 1px)),
+        linear-gradient(-45deg, transparent calc(50% - 1px), var(--wf-line) 50%, transparent calc(50% + 1px));
     }
-    .native-text { color: var(--n-text); font-size: 15px; line-height: 1.4; position: relative; }
-    .native-subheader { font-size: 17px; font-weight: 700; color: var(--n-text); position: relative; }
-    .native-box { position: relative; }
-    .native-image {
-      background: linear-gradient(135deg, #e9edf3, #dfe5ee); border-radius: 14px;
-      height: 120px; display: flex; align-items: center; justify-content: center;
-      color: #9aa6b8; position: relative;
-    }
-    .dark-mode .native-image { background: linear-gradient(135deg, #263041, #1c2430); }
-    .native-skel { display: inline-block; width: 72px; height: 9px; border-radius: 5px; background: rgba(255,255,255,0.6); }
-    .native-modal-chip {
+    .wf-modal {
       align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
-      font-size: 11px; color: var(--n-text-muted); background: rgba(127,127,127,0.10);
-      border: 1px dashed var(--n-line); border-radius: 999px; padding: 4px 10px; position: relative;
+      font-size: 11px; color: var(--wf-muted); background: var(--wf-fill);
+      border: 1px dashed var(--wf-muted); border-radius: 999px; padding: 4px 10px; position: relative;
     }
 
-    /* API / navigation badges */
+    /* API / navigation badges (kept colored to stand out on the wireframe) */
     .native-badge {
       position: absolute; right: -6px; top: -6px; font-size: 9px; font-weight: 700;
       color: #fff; padding: 2px 6px; border-radius: 8px; white-space: nowrap;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.4); z-index: 6;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.25); z-index: 6;
     }
     .native-badge.api { background: #a855f7; }
     .native-badge.nav { top: auto; bottom: -6px; background: #3b82f6; }
@@ -604,90 +608,105 @@
         .filter(e => nodeSet.has(e.from) && nodeSet.has(e.to) && e.from !== e.to);
     }
 
-    // Layered (left->right) layout: layer = longest path from a source, with a
-    // cycle guard so back-navigation doesn't create infinite loops. Orphans
-    // (screens with no navigation edges) drop into a grid band below.
+    // Lay screens out in three stacked regions, left->right by reachability:
+    //   A) the main flow reachable from the app's root screen (root leftmost),
+    //   B) connected sub-flows not reachable from root (e.g. deep-link entries),
+    //   C) orphan screens with no navigation edges.
     function layoutFlow(screensToShow) {
       const yStep = ARTBOARD_H + 120;
-      const margin = 100;
+      const MAX_PER_COL = 12, subColStep = ARTBOARD_W + 90, layerGap = 220, margin = 100;
 
       const edges = flowEdges(screensToShow);
-      const preds = {}, degree = {};
-      screensToShow.forEach(s => { preds[s.screen] = []; degree[s.screen] = 0; });
-      edges.forEach(e => { preds[e.to].push(e.from); degree[e.from]++; degree[e.to]++; });
+      const nodeSet = new Set(screensToShow.map(s => s.screen));
+      const adj = {}, preds = {}, degree = {};
+      screensToShow.forEach(s => { adj[s.screen] = []; preds[s.screen] = []; degree[s.screen] = 0; });
+      edges.forEach(e => { adj[e.from].push(e.to); preds[e.to].push(e.from); degree[e.from]++; degree[e.to]++; });
 
-      const layer = {}, state = {};
-      function calc(n) {
-        if (state[n] === 2) return layer[n];
-        if (state[n] === 1) return 0; // back-edge / cycle: ignore its contribution
-        state[n] = 1;
-        let max = -1;
-        for (const p of preds[n]) max = Math.max(max, calc(p));
-        state[n] = 2;
-        return (layer[n] = max + 1);
-      }
-      screensToShow.forEach(s => { if (degree[s.screen] > 0) calc(s.screen); });
+      const placed = new Set();
+      let maxX = margin, curY = margin;
 
-      const layers = {};
-      let maxLayer = 0;
-      screensToShow.forEach(s => {
-        if (degree[s.screen] === 0) return;
-        const L = layer[s.screen] || 0;
-        (layers[L] = layers[L] || []).push(s.screen);
-        if (L > maxLayer) maxLayer = L;
-      });
+      // Order nodes within layers: stable by name, then one barycenter sweep.
+      function orderAndPlace(layers, startY) {
+        const orderIndex = {};
+        const keys = Object.keys(layers).map(Number).sort((a, b) => a - b);
+        keys.forEach(L => { layers[L].sort(); layers[L].forEach((n, i) => { orderIndex[n] = i; }); });
+        const bary = (n) => { let s = 0, c = 0; preds[n].forEach(p => { if (orderIndex[p] !== undefined) { s += orderIndex[p]; c++; } }); return c ? s / c : (orderIndex[n] || 0); };
+        keys.forEach(L => { if (L === keys[0]) return; layers[L].sort((a, b) => bary(a) - bary(b)); layers[L].forEach((n, i) => { orderIndex[n] = i; }); });
 
-      // Order within each layer: stable by name, then one barycenter sweep to
-      // pull each node near the average position of its predecessors.
-      const orderIndex = {};
-      Object.keys(layers).forEach(L => {
-        layers[L].sort();
-        layers[L].forEach((n, i) => { orderIndex[n] = i; });
-      });
-      const bary = (n) => {
-        const ps = preds[n];
-        let sum = 0, c = 0;
-        ps.forEach(p => { if (orderIndex[p] !== undefined) { sum += orderIndex[p]; c++; } });
-        return c ? sum / c : (orderIndex[n] || 0);
-      };
-      for (let L = 1; L <= maxLayer; L++) {
-        if (!layers[L]) continue;
-        layers[L].sort((a, b) => bary(a) - bary(b));
-        layers[L].forEach((n, i) => { orderIndex[n] = i; });
-      }
-
-      // Place each layer in its own x-band; tall layers wrap into sub-columns
-      // so no single column runs thousands of pixels tall.
-      const MAX_PER_COL = 12;
-      const subColStep = ARTBOARD_W + 90;
-      const layerGap = 220;
-      let runX = margin, maxX = margin, maxY = margin;
-      Object.keys(layers).map(Number).sort((a, b) => a - b).forEach(L => {
-        const arr = layers[L];
-        const subCols = Math.ceil(arr.length / MAX_PER_COL);
-        arr.forEach((n, i) => {
-          const x = runX + Math.floor(i / MAX_PER_COL) * subColStep;
-          const y = margin + (i % MAX_PER_COL) * yStep;
-          positions.screens[n] = { x, y };
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
+        let runX = margin, regMaxY = startY;
+        keys.forEach(L => {
+          const arr = layers[L];
+          const subCols = Math.ceil(arr.length / MAX_PER_COL);
+          arr.forEach((n, i) => {
+            const x = runX + Math.floor(i / MAX_PER_COL) * subColStep;
+            const y = startY + (i % MAX_PER_COL) * yStep;
+            positions.screens[n] = { x, y }; placed.add(n);
+            if (x > maxX) maxX = x;
+            if (y > regMaxY) regMaxY = y;
+          });
+          runX += subCols * subColStep + layerGap;
         });
-        runX += subCols * subColStep + layerGap;
-      });
+        return regMaxY;
+      }
 
-      // Orphans: screens unconnected to the flow, in a grid band below.
-      const orphans = screensToShow.filter(s => degree[s.screen] === 0).map(s => s.screen);
+      // Longest-path layering within a node Set (cycle-guarded), preds restricted
+      // to the subgraph so seeds (no in-edge) land at layer 0.
+      function layerSubgraph(nodes) {
+        const layer = {}, state = {};
+        function calc(n) {
+          if (state[n] === 2) return layer[n];
+          if (state[n] === 1) return 0;
+          state[n] = 1;
+          let max = -1;
+          for (const p of preds[n]) if (nodes.has(p)) max = Math.max(max, calc(p));
+          state[n] = 2;
+          return (layer[n] = max + 1);
+        }
+        nodes.forEach(n => calc(n));
+        const layers = {};
+        nodes.forEach(n => { (layers[layer[n]] = layers[layer[n]] || []).push(n); });
+        return layers;
+      }
+
+      // Region A — BFS distance from the root screen (root at layer 0).
+      const root = (data.navGraph && data.navGraph.root && nodeSet.has(data.navGraph.root)) ? data.navGraph.root : null;
+      if (root) {
+        const dist = { [root]: 0 };
+        const q = [root];
+        while (q.length) { const n = q.shift(); adj[n].forEach(t => { if (dist[t] === undefined) { dist[t] = dist[n] + 1; q.push(t); } }); }
+        const layersA = {};
+        Object.keys(dist).forEach(n => { (layersA[dist[n]] = layersA[dist[n]] || []).push(n); });
+        curY = orderAndPlace(layersA, curY) + yStep * 1.5;
+      }
+
+      // Region B — connected screens not reached from root.
+      const remaining = new Set(screensToShow.filter(s => degree[s.screen] > 0 && !placed.has(s.screen)).map(s => s.screen));
+      if (remaining.size) {
+        curY = orderAndPlace(layerSubgraph(remaining), curY) + yStep * 1.5;
+      }
+
+      // Region C — orphans (no edges) in a grid.
+      const orphans = screensToShow.filter(s => degree[s.screen] === 0 && !placed.has(s.screen)).map(s => s.screen);
       if (orphans.length) {
         const cols = Math.max(6, Math.ceil(Math.sqrt(orphans.length)));
-        const orphanY = maxY + yStep * 1.5;
+        const orphanY = curY;
         orphans.forEach((n, i) => {
           const x = margin + (i % cols) * subColStep;
           const y = orphanY + Math.floor(i / cols) * yStep;
-          positions.screens[n] = { x, y };
+          positions.screens[n] = { x, y }; placed.add(n);
           if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
         });
+        curY = orphanY + Math.ceil(orphans.length / cols) * yStep;
       }
+
+      // Safety net: place anything somehow unplaced.
+      let maxY = curY;
+      screensToShow.forEach((s, i) => {
+        if (!positions.screens[s.screen]) {
+          positions.screens[s.screen] = { x: margin, y: curY + i * yStep };
+          maxY = Math.max(maxY, curY + i * yStep);
+        }
+      });
       return { maxX, maxY };
     }
     
@@ -736,7 +755,6 @@
       if (lp.justifyContent) s += `justify-content: ${lp.justifyContent}; `;
       if (lp.alignItems) s += `align-items: ${lp.alignItems}; `;
       if (lp.textAlign) s += `text-align: ${lp.textAlign}; `;
-      if (lp.bg) s += `background-color: ${lp.bg === 'white' ? '#fff' : lp.bg}; `;
       if (lp.pad) s += `padding: ${sp(lp.pad)}; `;
       if (lp.padH) s += `padding-left: ${sp(lp.padH)}; padding-right: ${sp(lp.padH)}; `;
       if (lp.padV) s += `padding-top: ${sp(lp.padV)}; padding-bottom: ${sp(lp.padV)}; `;
@@ -748,14 +766,14 @@
       return s;
     }
 
-    // Render the parsed JSX tree as a clean approximation of a real mobile screen.
+    // Render the parsed JSX tree as a simple greyscale wireframe of the screen.
     function buildRealUI(nodes) {
       if (!nodes || nodes.length === 0) return '';
       let html = '';
       nodes.forEach(node => {
         if (node.tagName === 'TEXT_LITERAL') {
           const t = (node.text || '').trim();
-          if (t) html += `<div class="native-text">${escapeHtml(t)}</div>`;
+          if (t) html += `<div class="wf-text">${escapeHtml(t)}</div>`;
           return;
         }
 
@@ -778,23 +796,22 @@
         const label = firstText(node);
 
         if (isModal) {
-          // Overlays are hidden until triggered — show a subtle chip, not a giant element.
-          html += `<div class="native-modal-chip" style="${style}"${tip}>${badges}▢ ${escapeHtml(tag)}</div>`;
+          html += `<div class="wf-modal" style="${style}"${tip}>${badges}▢ ${escapeHtml(tag)}</div>`;
         } else if (isButton) {
-          html += `<div class="native-btn" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : '<span class="native-skel"></span>'}</div>`;
+          html += `<div class="wf-btn" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : '<span class="wf-line" style="width:90px;"></span>'}</div>`;
         } else if (isInput) {
-          html += `<div class="native-input" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : 'Input field'}</div>`;
+          html += `<div class="wf-input" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : '<span class="wf-line" style="width:55%;"></span>'}</div>`;
         } else if (isImage) {
-          html += `<div class="native-image" style="${style}"${tip}>${badges}<span style="font-size:26px;opacity:.6;">🖼</span></div>`;
+          html += `<div class="wf-image" style="${style}"${tip}>${badges}</div>`;
         } else if (isHeader) {
-          html += `<div class="native-subheader" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : inner}</div>`;
+          html += `<div class="wf-subheader" style="${style}"${tip}>${badges}${label ? escapeHtml(label) : (inner || '<span class="wf-line" style="width:50%;"></span>')}</div>`;
         } else if (isTextWrapper) {
-          html += `<div class="native-text" style="${style}"${tip}>${badges}${inner || (label ? escapeHtml(label) : '')}</div>`;
+          html += `<div class="wf-text" style="${style}"${tip}>${badges}${inner || (label ? escapeHtml(label) : '<span class="wf-line" style="width:70%;"></span>')}</div>`;
         } else {
           let s = `display:flex; flex-direction:${isRow ? 'row' : 'column'}; gap:10px; position:relative; ${style}`;
           if (isScrollView) s += ' overflow-y:auto;';
           if (isRow) s += ' align-items:flex-start; flex-wrap:wrap;';
-          const cls = isCard ? 'native-card' : 'native-box';
+          const cls = isCard ? 'wf-card' : 'wf-box';
           html += `<div class="${cls}" style="${s}"${tip}>${badges}${inner}</div>`;
         }
       });

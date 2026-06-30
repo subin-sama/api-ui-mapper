@@ -43,6 +43,32 @@ export interface LoginRes { token: string; }
 export interface CreateReq { name: string; }
 export interface CreateRes { id: string; }
 export interface Item { id: string; label: string; }
+export interface StatusRes {
+  responseCode: string;
+  httpStatus: number;
+  isVerified: boolean;
+  hasError: boolean;
+  isBlocked: boolean;
+  errorMessage: string;
+}
+`);
+
+write('api/status.ts', `
+import request from '../request';
+export const getStatus = (): Promise<StatusRes> => request.get('/status');
+`);
+// Consuming code (outside the api dir) compares fields against specific values —
+// mocks should use them, success-biased: responseCode='00' (not error '99'),
+// httpStatus=200 (not the more-frequent error 401).
+write('utils/handlers.ts', `
+function handle(res) {
+  if (res.responseCode === '00') return 'ok';
+  if (res.responseCode === '00') return 'ok2';
+  if (res.responseCode === '99') return 'err';
+  if (res.httpStatus === 401) return 'unauth';
+  if (res.httpStatus === 401) return 'unauth2';
+  if (res.httpStatus === 200) return 'fine';
+}
 `);
 
 // Types with nested references, arrays-of-objects, extends, and unions —
@@ -154,10 +180,12 @@ import HomeStack from './HomeStack';
 const Stack = createNativeStackNavigator();
 export default function AppStack() {
   return (
-    <Stack.Navigator initialRouteName="SplashScreen">
+    <NavigationContainer>
+    <Stack.Navigator initialRouteName={'SplashScreen'}>
       <Stack.Screen name="SplashScreen" component={SplashScreen} />
       <Stack.Screen name="HomeStack" component={HomeStack} />
     </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 `);
@@ -188,6 +216,28 @@ export default function SettingsStack() {
 }
 `);
 
+// Custom component (default export) with its own layout; the file also has a
+// named export to verify default-vs-named resolution.
+write('components/Numpad.tsx', `
+import React from 'react';
+const Numpad = () => (
+  <View>
+    <Row><KeyButton value="1" /><KeyButton value="2" /><KeyButton value="3" /></Row>
+    <Row><KeyButton value="4" /><KeyButton value="5" /><KeyButton value="6" /></Row>
+  </View>
+);
+export default Numpad;
+export const MiniPad = () => (<View><KeyButton value="0" /></View>);
+`);
+// Screen that uses the custom component — its internals should be inlined.
+write('screens/PadScreen.tsx', `
+import React from 'react';
+import Numpad from '../components/Numpad';
+export default function PadScreen() {
+  return (<View><Header>Enter PIN</Header><Numpad /></View>);
+}
+`);
+
 const result = runParser({
   srcDir: src,
   apiDirs: [path.join(src, 'api')],
@@ -212,7 +262,7 @@ console.log('parser end-to-end');
 test('discovers all named API exports', () => {
   assert.deepStrictEqual(
     Object.keys(api).sort(),
-    ['create', 'dyn', 'find', 'list', 'listRes', 'login', 'logout', 'ping', 'profile']
+    ['create', 'dyn', 'find', 'getStatus', 'list', 'listRes', 'login', 'logout', 'ping', 'profile']
   );
 });
 
@@ -308,6 +358,24 @@ test('mockResJson: dependency fields do NOT leak to the top level', () => {
   assert.ok(m.address && typeof m.address.street === 'string');
 });
 
+test('mockResJson: uses the value the code checks (responseCode), not a guess', () => {
+  const m = api.getStatus.mockResJson; // StatusRes { responseCode: string; httpStatus: number }
+  assert.strictEqual(m.responseCode, '00', 'should be the checked success code, not "0000"');
+});
+
+test('mockResJson: success-biased numeric hint (200, not the error 401)', () => {
+  const m = api.getStatus.mockResJson;
+  assert.strictEqual(m.httpStatus, 200);
+});
+
+test('mockResJson: booleans default to the happy path (positive true, negative false)', () => {
+  const m = api.getStatus.mockResJson;
+  assert.strictEqual(m.isVerified, true);   // positive-sense -> true
+  assert.strictEqual(m.hasError, false);    // negative-sense -> false
+  assert.strictEqual(m.isBlocked, false);   // negative-sense -> false
+  assert.strictEqual(m.errorMessage, '');   // error message empty on happy path
+});
+
 test('mockResJson: extends merges base type fields', () => {
   const m = api.listRes.mockResJson; // ListRes extends Profile { total }
   assert.strictEqual(typeof m.total, 'number');
@@ -323,6 +391,11 @@ const hasEdge = (fromSuffix, toSuffix) =>
 test('navGraph exists with edges', () => {
   assert.ok(result.navGraph, 'navGraph present');
   assert.ok(edges.length > 0, 'should resolve some edges');
+});
+
+test('flow root resolves from the NavigationContainer + initialRouteName={..}', () => {
+  // AppStack mounts NavigationContainer with initialRouteName={'SplashScreen'}
+  assert.strictEqual(result.navGraph.root, 'screens/SplashScreen.tsx');
 });
 
 test('navigate to a stack resolves to the stack entry screen (initialRouteName)', () => {
@@ -341,6 +414,19 @@ test('unregistered route falls back to matching screen filename', () => {
   // DashScreen -> navigate('OrphanScreen'); not in any navigator
   assert.ok(hasEdge('DashScreen.tsx', 'OrphanScreen.tsx'),
     'route matching a screen filename should still link');
+});
+
+test('custom component is expanded into its wireframe (default export, not named)', () => {
+  const s = screenBy('PadScreen.tsx');
+  let pad = null;
+  const find = n => { if (!n) return; if (n.tagName === 'Numpad') pad = n; (n.children || []).forEach(find); };
+  (s.uiTree || []).forEach(find);
+  assert.ok(pad, 'Numpad node present in PadScreen tree');
+  assert.ok(pad.expanded, 'Numpad should be expanded into its internals');
+  let keys = 0;
+  const cw = n => { if (!n) return; if (n.tagName === 'KeyButton') keys++; (n.children || []).forEach(cw); };
+  cw(pad);
+  assert.strictEqual(keys, 6, 'inlines the 6 KeyButtons of the default-export Numpad (not the 1-key MiniPad)');
 });
 
 test('edges never point a screen at itself, and target real screens', () => {
