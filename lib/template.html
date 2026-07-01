@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js" integrity="sha512-iTgTmIgxyA2YehKNVbzLJx4j9SnuC5ihtRrtxVkXH/9nF3vXBN5YeNQp+6wufBWKD3u+roHVNOvWBMufQnBbug==" crossorigin="anonymous"></script>
   <style>
     :root {
       --bg: #1e1e1e;
@@ -78,9 +79,15 @@
       overflow: hidden;
     }
     
-    .canvas-layer { position: absolute; top: 0; left: 0; width: 10000px; height: 10000px; transform-origin: 0 0; pointer-events: none; }
-    .canvas-content { pointer-events: auto; }
-    .svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    /* vis-network flow canvas + HTML wireframe overlay */
+    #vis-canvas { position: absolute; inset: 0; z-index: 1; }
+    #node-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+    .wf-node { position: absolute; }
+    .wf-node .native-device { transition: outline 0.12s, box-shadow 0.12s; }
+    .wf-node.selected .native-device { outline: 4px solid var(--primary); outline-offset: 3px; box-shadow: 0 0 0 8px var(--primary-glow), 0 16px 50px rgba(0,0,0,0.5); }
+    .wf-node.conn-out .native-device { outline: 4px solid #0ea5e9; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(14,165,233,0.18); }
+    .wf-node.conn-in .native-device { outline: 4px solid #10b981; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(16,185,129,0.18); }
+    .wf-node.faded { opacity: 0.2; transition: opacity 0.15s; }
     
     /* Toolbar */
     .canvas-toolbar {
@@ -365,22 +372,15 @@
         <button class="toolbar-btn" onclick="window.location.href='/playground'" style="color: var(--primary); font-weight: bold; background: rgba(14, 165, 233, 0.1);">⚡ API Playground</button>
         <button class="toolbar-btn" onclick="resetZoom()">⌂ Zoom to Fit</button>
         <div class="toolbar-btn" id="zoom-label" style="cursor: default; min-width: 60px; text-align: center;">100%</div>
-        <label class="toolbar-btn toggle-switch">
-          <input type="checkbox" id="show-apis" onchange="init()"> Show API Connections
-        </label>
-        <label class="toolbar-btn toggle-switch">
-          <input type="checkbox" id="show-navs" checked onchange="init()"> Show Navigations
-        </label>
+        <div class="toolbar-btn" style="cursor: default; color: var(--text-muted); font-size: 11px;">drag a screen to move it · click to see its APIs</div>
         <label class="toolbar-btn toggle-switch">
           <input type="checkbox" id="dark-mode-ui" checked onchange="init()"> Dark Mode UI
         </label>
       </div>
-      
-      <div class="canvas-layer" id="canvas-layer">
-        <svg class="svg-layer" id="connection-svg"></svg>
-        <div class="canvas-content" id="canvas-nodes"></div>
-      </div>
-      
+
+      <div id="vis-canvas"></div>
+      <div id="node-overlay"></div>
+
       <aside class="inspector" id="inspector">
         <div class="inspector-header">
           <div style="display:flex; align-items:center;">
@@ -566,39 +566,14 @@
         document.getElementById('project-path').value = data.projectName;
       }
       
-      const showApis = document.getElementById('show-apis').checked;
-      const screensToShow = data.screensMapping.filter(s => showApis ? s.calls.length > 0 : true);
+      const screensToShow = data.screensMapping;
 
-      // Clear stale layout so edges never reference artboards from a prior render.
+      // Lay screens out as a navigation flow (left -> right by reachability),
+      // then hand the positions to the vis-network engine.
       positions.screens = {};
-      positions.apis = {};
-
-      // Lay screens out as a navigation flow (left -> right by reachability).
-      const { maxX, maxY } = layoutFlow(screensToShow);
-      let boundX = maxX + ARTBOARD_W + 200;
-      let boundY = maxY + ARTBOARD_H + 200;
-
-      // Place API nodes to the right of the whole flow.
-      if (showApis) {
-        let apiY = 100;
-        const apiX = maxX + ARTBOARD_W + 400;
-        Object.values(data.apiRegistry).forEach((apiObj) => {
-          if (!apiObj.screens || apiObj.screens.length === 0) return;
-          positions.apis[apiObj.funcName] = { x: apiX, y: apiY };
-          apiY += 150;
-        });
-        boundX = apiX + 400;
-        boundY = Math.max(boundY, apiY + 200);
-      }
-
-      // Size the canvas layer to fit all content (was a fixed 10000px box that
-      // clipped large projects).
-      canvasLayer.style.width = Math.max(2000, boundX) + 'px';
-      canvasLayer.style.height = Math.max(2000, boundY) + 'px';
-
-      renderLayers(screensToShow, showApis);
-      renderCanvas(screensToShow, showApis);
-      setupPanZoom();
+      layoutFlow(screensToShow);
+      renderLayers(screensToShow, false);
+      renderFlow(screensToShow);
     }
 
     // Build the navigation edge list among the currently shown screens.
@@ -817,121 +792,123 @@
       });
       return html;
     }
-    function renderCanvas(screensToShow, showApis) {
-      const isDarkModeUI = document.getElementById('dark-mode-ui').checked;
-      let nodesHtml = '';
-      
+    // ---- vis-network flow engine -----------------------------------------
+    // Screens are vis nodes (invisible hit-boxes) laid out by layoutFlow(); the
+    // phone wireframes are HTML overlays synced to each node's position, so nodes
+    // are draggable/zoomable while keeping the wireframe look. Only navigation
+    // edges are drawn (API links are seen by clicking a screen).
+    let network = null, visNodes = null, visEdges = null;
+    const overlayEls = {};
+
+    function renderFlow(screensToShow) {
+      const isDark = document.getElementById('dark-mode-ui').checked;
+
+      const nodes = screensToShow.map(s => {
+        const p = positions.screens[s.screen] || { x: 0, y: 0 };
+        return {
+          id: s.screen, x: p.x + ARTBOARD_W / 2, y: p.y + ARTBOARD_H / 2,
+          shape: 'box', label: ' ', borderWidth: 0,
+          color: { background: 'rgba(0,0,0,0)', border: 'rgba(0,0,0,0)', highlight: { background: 'rgba(0,0,0,0)', border: 'rgba(0,0,0,0)' } },
+          widthConstraint: { minimum: ARTBOARD_W, maximum: ARTBOARD_W },
+          heightConstraint: { minimum: ARTBOARD_H }
+        };
+      });
+      const edges = flowEdges(screensToShow).map((e, i) => ({ id: i, from: e.from, to: e.to }));
+
+      visNodes = new vis.DataSet(nodes);
+      visEdges = new vis.DataSet(edges);
+
+      const options = {
+        physics: false,
+        layout: { hierarchical: false, improvedLayout: false, randomSeed: 1 },
+        interaction: { dragNodes: true, dragView: true, zoomView: true, hover: false, selectConnectedEdges: false, multiselect: false },
+        nodes: { shape: 'box' },
+        edges: {
+          arrows: { to: { enabled: true, scaleFactor: 1.1 } },
+          color: { color: '#8b5cf6', opacity: 0.22 },
+          smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.5 },
+          width: 2, selectionWidth: 0
+        }
+      };
+
+      const container = document.getElementById('vis-canvas');
+      if (network) network.destroy();
+      network = new vis.Network(container, { nodes: visNodes, edges: visEdges }, options);
+
+      // HTML wireframe overlays (visual only; clicks/drag pass through to vis).
+      const overlay = document.getElementById('node-overlay');
+      overlay.innerHTML = '';
+      Object.keys(overlayEls).forEach(k => delete overlayEls[k]);
       screensToShow.forEach(s => {
-        const pos = positions.screens[s.screen];
-        const uiHtml = buildRealUI(s.uiTree);
         const name = s.screen.split('/').pop();
         const title = name.replace(/\.(t|j)sx?$/, '');
-
-        nodesHtml += `
-          <div class="artboard native-device ${isDarkModeUI ? 'dark-mode' : ''}" style="left: ${pos.x}px; top: ${pos.y}px; width: ${ARTBOARD_W}px; height: ${ARTBOARD_H}px; padding:0; display:flex; flex-direction:column;" id="node-${s.screen.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="selectNode('screen', '${jsAttr(s.screen)}')">
-            <div class="artboard-title" style="top: -32px; color: var(--text);">${escapeHtml(name)}</div>
-            <div class="native-statusbar">
-              <span class="sb-time">9:41</span>
-              <span class="sb-right"><span class="sb-signal"></span><span class="sb-wifi"></span><span class="sb-batt"></span></span>
-            </div>
+        const div = document.createElement('div');
+        div.className = 'wf-node';
+        div.style.cssText = `position:absolute; left:0; top:0; width:${ARTBOARD_W}px; height:${ARTBOARD_H}px; transform-origin:0 0; will-change:transform;`;
+        div.innerHTML = `
+          <div class="artboard-title">${escapeHtml(name)}</div>
+          <div class="native-device ${isDark ? 'dark-mode' : ''}" style="width:100%; height:100%; display:flex; flex-direction:column;">
+            <div class="native-statusbar"><span class="sb-time">9:41</span><span class="sb-right"><span class="sb-signal"></span><span class="sb-wifi"></span><span class="sb-batt"></span></span></div>
             <div class="native-appbar">${escapeHtml(title)}</div>
-            <div class="native-screen">
-              ${uiHtml || '<div style="color:var(--n-text-muted);text-align:center;margin-top:60px;font-size:13px;">No UI structure parsed</div>'}
-            </div>
+            <div class="native-screen">${buildRealUI(s.uiTree) || '<div style="color:var(--n-text-muted);text-align:center;margin-top:60px;font-size:13px;">No UI structure parsed</div>'}</div>
             <div class="native-homebar"></div>
-            ${showApis ? '<div class="node-anchor anchor-right"></div>' : ''}
-          </div>
-        `;
+          </div>`;
+        overlay.appendChild(div);
+        overlayEls[s.screen] = div;
       });
-      
-      if (showApis) {
-        Object.values(data.apiRegistry).forEach(api => {
-          if (!api.screens || api.screens.length === 0) return;
-          const pos = positions.apis[api.funcName];
-          nodesHtml += `
-            <div class="api-node" style="left: ${pos.x}px; top: ${pos.y}px;" id="node-${api.funcName.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="selectNode('api', '${jsAttr(api.funcName)}')">
-              <div class="node-anchor anchor-left"></div>
-              <div class="api-node-header"><span class="api-name">❖ ${escapeHtml(api.funcName)}</span><span class="api-method method-${escapeHtml(api.method.toLowerCase())}">${escapeHtml(api.method)}</span></div>
-              <div class="api-endpoint">${escapeHtml(api.endpoint)}</div>
-            </div>
-          `;
-        });
-      }
-      
-      canvasNodes.innerHTML = nodesHtml;
-      drawEdges(showApis);
-    }
-    
-    const EDGE_DEFS = `<defs>
-      <marker id="ah" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L16,8 L0,16 z" fill="#8b5cf6"/></marker>
-      <marker id="ah-out" markerWidth="18" markerHeight="18" refX="14" refY="9" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L18,9 L0,18 z" fill="#0ea5e9"/></marker>
-      <marker id="ah-in" markerWidth="18" markerHeight="18" refX="14" refY="9" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L18,9 L0,18 z" fill="#10b981"/></marker>
-    </defs>`;
 
-    // Bezier between two artboards: leaves the side facing the target and
-    // enters the target's facing side, so forward and back edges stay readable.
-    function edgePath(p1, p2) {
-      const forward = p2.x >= p1.x;
-      const sx = forward ? p1.x + ARTBOARD_W : p1.x;
-      const ex = forward ? p2.x : p2.x + ARTBOARD_W;
-      const sy = p1.y + ARTBOARD_H / 2;
-      const ey = p2.y + ARTBOARD_H / 2;
-      const dx = Math.max(80, Math.abs(ex - sx) * 0.4);
-      const c1x = forward ? sx + dx : sx - dx;
-      const c2x = forward ? ex - dx : ex + dx;
-      return `M ${sx} ${sy} C ${c1x} ${sy}, ${c2x} ${ey}, ${ex} ${ey}`;
+      network.on('afterDrawing', syncOverlays);
+      network.on('click', (params) => {
+        if (params.nodes && params.nodes.length) selectNode('screen', params.nodes[0]);
+        else closeInspector();
+      });
+      network.once('afterDrawing', () => { network.fit({ animation: false }); });
     }
 
-    function drawEdges(showApis) {
-      let svgHtml = EDGE_DEFS;
-
-      // API edges (screen -> API node), only in API mode.
-      if (showApis) {
-        data.screensMapping.forEach(s => {
-          if (s.calls.length === 0) return;
-          const pos1 = positions.screens[s.screen];
-          if (!pos1) return;
-          const startX = pos1.x + ARTBOARD_W;
-          const startY = pos1.y + ARTBOARD_H / 2;
-          s.calls.forEach(call => {
-            const pos2 = positions.apis[call.funcName];
-            if (!pos2) return;
-            const endX = pos2.x, endY = pos2.y + 30;
-            const cX1 = startX + (endX - startX) / 2;
-            const path = `M ${startX} ${startY} C ${cX1} ${startY}, ${cX1} ${endY}, ${endX} ${endY}`;
-            const isSelected = selectedNodeId === s.screen || selectedNodeId === call.funcName;
-            svgHtml += `<path class="edge ${isSelected ? 'active' : ''}" d="${path}" />`;
-          });
-        });
-      }
-
-      // Navigation flow edges (screen -> screen). Independent of API mode.
-      const showNavs = document.getElementById('show-navs') && document.getElementById('show-navs').checked;
-      if (showNavs && data.navGraph && data.navGraph.edges) {
-        const hasSel = selectedNodeId && positions.screens[selectedNodeId];
-        data.navGraph.edges.forEach(e => {
-          const p1 = positions.screens[e.from], p2 = positions.screens[e.to];
-          if (!p1 || !p2) return;
-          let cls = 'flow-edge', marker = 'ah';
-          if (hasSel) {
-            if (e.from === selectedNodeId) { cls += ' out'; marker = 'ah-out'; }
-            else if (e.to === selectedNodeId) { cls += ' in'; marker = 'ah-in'; }
-            else { cls += ' dim'; }
-          }
-          svgHtml += `<path class="${cls}" marker-end="url(#${marker})" d="${edgePath(p1, p2)}" />`;
-        });
-      }
-
-      svgCanvas.innerHTML = svgHtml;
-    }
-    
-    function goBackInspector() {
-      if (inspectorHistory.length > 0) {
-        const prev = inspectorHistory.pop();
-        selectNode(prev.type, prev.id, true);
+    // Keep the HTML wireframes aligned with their vis nodes on every redraw.
+    function syncOverlays() {
+      if (!network) return;
+      const scale = network.getScale();
+      const posMap = network.getPositions();
+      if (zoomLabel) zoomLabel.textContent = Math.round(scale * 100) + '%';
+      for (const id in overlayEls) {
+        const p = posMap[id];
+        if (!p) continue;
+        const dom = network.canvasToDOM(p);
+        const left = dom.x - (ARTBOARD_W * scale) / 2;
+        const top = dom.y - (ARTBOARD_H * scale) / 2;
+        overlayEls[id].style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
       }
     }
-    
+
+    function clearHighlightClasses() {
+      document.querySelectorAll('.wf-node.conn-in, .wf-node.conn-out, .wf-node.faded')
+        .forEach(el => el.classList.remove('conn-in', 'conn-out', 'faded'));
+    }
+    // Highlight the selected screen's flow: outgoing edges/targets in blue,
+    // incoming edges/sources in green, everything else faded out.
+    function highlightEdges(screenId) {
+      if (!visEdges) return;
+      const outNodes = new Set(), inNodes = new Set();
+      visEdges.update(visEdges.get().map(e => {
+        if (e.from === screenId) { outNodes.add(e.to); return { id: e.id, color: { color: '#0ea5e9', opacity: 1 }, width: 6 }; }
+        if (e.to === screenId) { inNodes.add(e.from); return { id: e.id, color: { color: '#10b981', opacity: 1 }, width: 6 }; }
+        return { id: e.id, color: { color: '#8b5cf6', opacity: 0.03 }, width: 1.5 };
+      }));
+      clearHighlightClasses();
+      for (const nid in overlayEls) {
+        if (nid === screenId) continue;
+        if (outNodes.has(nid)) overlayEls[nid].classList.add('conn-out');
+        else if (inNodes.has(nid)) overlayEls[nid].classList.add('conn-in');
+        else overlayEls[nid].classList.add('faded');
+      }
+    }
+    function clearEdgeHighlight() {
+      if (!visEdges) return;
+      visEdges.update(visEdges.get().map(e => ({ id: e.id, color: { color: '#8b5cf6', opacity: 0.22 }, width: 2 })));
+      clearHighlightClasses();
+    }
+
     function selectNode(type, id, isBack = false) {
       if (!isBack) {
         if (inspector.classList.contains('open') && selectedNodeId) {
@@ -940,49 +917,41 @@
           inspectorHistory = [];
         }
       }
-      
       const backBtn = document.getElementById('inspector-back-btn');
-      if (backBtn) {
-        backBtn.style.display = inspectorHistory.length > 0 ? 'inline-block' : 'none';
-      }
-      
+      if (backBtn) backBtn.style.display = inspectorHistory.length > 0 ? 'inline-block' : 'none';
+
       selectedNodeType = type;
       selectedNodeId = id;
+
       document.querySelectorAll('.layer-item').forEach(el => el.classList.remove('active'));
-      const safeId = id.replace(/[^a-zA-Z0-9]/g,'_');
-      const li = document.getElementById(`layer-${safeId}`);
+      const li = document.getElementById(`layer-${id.replace(/[^a-zA-Z0-9]/g, '_')}`);
       if (li) li.classList.add('active');
-      
-      document.querySelectorAll('.artboard, .api-node').forEach(el => {
-        el.style.borderColor = '';
-        el.style.boxShadow = '';
-      });
-      
-      const nodeEl = document.getElementById(`node-${safeId}`);
-      if (nodeEl) {
-        nodeEl.style.borderColor = 'var(--primary)';
-        nodeEl.style.boxShadow = '0 0 0 4px var(--primary-glow), 0 10px 40px rgba(0,0,0,0.5)';
+
+      document.querySelectorAll('.wf-node').forEach(el => el.classList.remove('selected'));
+      if (type === 'screen') {
+        if (overlayEls[id]) overlayEls[id].classList.add('selected');
+        if (network) { try { network.selectNodes([id]); } catch (e) {} }
+        highlightEdges(id);
       }
-      
-      drawEdges(document.getElementById('show-apis').checked);
-      
+
       inspector.classList.add('open');
       if (type === 'screen') {
         const s = data.screensMapping.find(x => x.screen === id);
         inspectorTitle.textContent = 'Screen Properties';
-        let apisHtml = s.calls.map(c => `<div class="layer-item" onclick="focusNode('api', '${jsAttr(c.funcName)}')"><span style="color:#38bdf8">❖</span> ${escapeHtml(c.funcName)}</div>`).join('');
+        const apisHtml = s.calls.map(c => `<div class="layer-item" onclick="focusNode('api', '${jsAttr(c.funcName)}')"><span style="color:#38bdf8">❖</span> ${escapeHtml(c.funcName)}</div>`).join('');
         inspectorBody.innerHTML = `
           <div class="prop-group"><div class="prop-label">File Path</div><div class="prop-value">${escapeHtml(s.screen)}</div></div>
           <button class="btn-primary" onclick="openFileInEditor('${jsAttr(s.screen)}')" style="margin-bottom: 24px;">📂 Open in Editor</button>
           <div class="prop-group"><div class="prop-label">Calls APIs (${s.calls.length})</div>
-            <div style="margin-top: 8px; border: 1px solid var(--border); border-radius: 4px; padding: 4px 0;">${apisHtml}</div>
+            <div style="margin-top: 8px; border: 1px solid var(--border); border-radius: 4px; padding: 4px 0;">${apisHtml || '<div style="padding:8px 12px;color:var(--text-muted);font-size:12px;">No API calls</div>'}</div>
           </div>
         `;
       } else {
         const api = data.apiRegistry[id];
+        if (!api) return;
         inspectorTitle.textContent = 'API Properties';
-        let reqHtml = api.reqTypeDecl ? `<div class="prop-label">Request Type: ${escapeHtml(api.reqType)}</div><div class="code-block">${escapeHtml(api.reqTypeDecl)}</div>` : '';
-        let resHtml = api.resTypeDecl ? `<div class="prop-label">Response Type: ${escapeHtml(api.resType)}</div><div class="code-block">${escapeHtml(api.resTypeDecl)}</div>` : '';
+        const reqHtml = api.reqTypeDecl ? `<div class="prop-label">Request Type: ${escapeHtml(api.reqType)}</div><div class="code-block">${escapeHtml(api.reqTypeDecl)}</div>` : '';
+        const resHtml = api.resTypeDecl ? `<div class="prop-label">Response Type: ${escapeHtml(api.resType)}</div><div class="code-block">${escapeHtml(api.resTypeDecl)}</div>` : '';
         inspectorBody.innerHTML = `
           <div class="prop-group"><div class="prop-label">Function</div><div class="prop-value">${escapeHtml(api.funcName)}</div></div>
           <div class="prop-group"><div class="prop-label">Endpoint</div><div class="prop-value"><span class="api-method method-${escapeHtml(api.method.toLowerCase())}">${escapeHtml(api.method)}</span> ${escapeHtml(api.endpoint)}</div></div>
@@ -992,69 +961,27 @@
         `;
       }
     }
-    
+
     function focusNode(type, id) {
-      selectNode(type, id);
-      const pos = type === 'screen' ? positions.screens[id] : positions.apis[id];
-      if (pos) {
-        const rect = canvasContainer.getBoundingClientRect();
-        translateX = (rect.width / 2) - (pos.x * scale);
-        translateY = (rect.height / 2) - ((pos.y + ARTBOARD_H / 2) * scale);
-        updateTransform();
+      if (type === 'screen') {
+        selectNode('screen', id);
+        if (network) network.focus(id, { scale: 0.55, animation: { duration: 400 } });
+      } else {
+        selectNode('api', id);
       }
     }
-    
+
     function closeInspector() {
       inspector.classList.remove('open');
       selectedNodeId = null;
-      drawEdges(document.getElementById('show-apis').checked);
-      document.querySelectorAll('.artboard, .api-node').forEach(el => { el.style.borderColor = ''; el.style.boxShadow = ''; });
+      document.querySelectorAll('.wf-node').forEach(el => el.classList.remove('selected'));
       document.querySelectorAll('.layer-item').forEach(el => el.classList.remove('active'));
+      if (network) network.unselectAll();
+      clearEdgeHighlight();
     }
-    
-    function setupPanZoom() {
-      // init() can run many times (toggles, re-scans); only bind listeners once
-      // to avoid stacking duplicate handlers on every render.
-      if (!panZoomBound) {
-        panZoomBound = true;
-        canvasContainer.addEventListener('mousedown', (e) => {
-          if (e.target.closest('.canvas-content')) return;
-          isPanning = true; startX = e.clientX - translateX; startY = e.clientY - translateY;
-          canvasContainer.style.cursor = 'grabbing';
-        });
-        window.addEventListener('mousemove', (e) => {
-          if (!isPanning) return;
-          translateX = e.clientX - startX; translateY = e.clientY - startY;
-          updateTransform();
-        });
-        window.addEventListener('mouseup', () => { isPanning = false; canvasContainer.style.cursor = 'default'; });
 
-        canvasContainer.addEventListener('wheel', (e) => {
-          if (e.target.closest('.inspector') || e.target.closest('.modal-window')) return;
-          e.preventDefault();
-          if (e.ctrlKey || e.metaKey) {
-            const zoomAmount = e.deltaY * -0.005;
-            const newScale = Math.min(Math.max(0.1, scale + zoomAmount), 3);
-            const rect = canvasContainer.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left; const mouseY = e.clientY - rect.top;
-            translateX = mouseX - (mouseX - translateX) * (newScale / scale);
-            translateY = mouseY - (mouseY - translateY) * (newScale / scale);
-            scale = newScale;
-          } else {
-            translateX -= e.deltaX; translateY -= e.deltaY;
-          }
-          updateTransform();
-        }, { passive: false });
-      }
-      updateTransform();
-    }
-    
-    function updateTransform() {
-      canvasLayer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-      zoomLabel.textContent = Math.round(scale * 100) + '%';
-    }
-    
-    function resetZoom() { scale = 0.5; translateX = 50; translateY = 50; updateTransform(); }
+    function resetZoom() { if (network) network.fit({ animation: true }); }
+
     
     function escapeHtml(unsafe) {
       if (!unsafe) return "";
