@@ -276,9 +276,13 @@ async function findAvailablePort(startPort) {
     }
     function persistMockOverrides() {
       const file = overridesFileFor(currentProjectPath);
-      if (!file) return;
+      if (!file) {
+        console.warn('⚠️ Cannot save mock override: no project scanned yet (scan a project first).');
+        return;
+      }
       try {
         fs.writeFileSync(file, JSON.stringify(mockCustomConfigs, null, 2), 'utf8');
+        console.log(`💾 Mock overrides saved to ${file} (${Object.keys(mockCustomConfigs).length} endpoint(s))`);
       } catch (e) {
         console.warn(`⚠️ Could not save mocks (${file}): ${e.message}`);
       }
