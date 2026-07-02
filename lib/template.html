@@ -88,16 +88,44 @@
     .wf-node.conn-out .native-device { outline: 4px solid #0ea5e9; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(14,165,233,0.18); }
     .wf-node.conn-in .native-device { outline: 4px solid #10b981; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(16,185,129,0.18); }
     .wf-node.faded { opacity: 0.2; transition: opacity 0.15s; }
+    /* Level-of-detail: zoomed way out, wireframes are unreadable/vanish — so swap each
+       for a fixed-size labelled chip (unscaled) centered on its node. */
+    .lod-chip { display: none; }
+    #node-overlay.lod .wf-node > .artboard-title,
+    #node-overlay.lod .wf-node > .native-device { display: none !important; }
+    #node-overlay.lod .wf-node > .lod-chip {
+      display: block; position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+      white-space: nowrap; background: var(--card-bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px; padding: 5px 11px;
+      font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+    }
+    #node-overlay.lod .wf-node.selected > .lod-chip { border-color: var(--primary); color: #fff; }
+    #node-overlay.lod .wf-node.conn-out > .lod-chip { border-color: #0ea5e9; }
+    #node-overlay.lod .wf-node.conn-in > .lod-chip { border-color: #10b981; }
+    /* Zoomed out even further, name chips overlap into an unreadable pile — so at the
+       lowest zoom they collapse to small dots (a clean constellation / overview map). */
+    #node-overlay.dots .wf-node > .lod-chip {
+      width: 11px; height: 11px; padding: 0; border-radius: 50%;
+      font-size: 0; overflow: hidden; background: #8b5cf6; border-color: transparent;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+    }
+    #node-overlay.dots .wf-node.selected > .lod-chip { background: var(--primary); box-shadow: 0 0 0 4px var(--primary-glow); }
+    #node-overlay.dots .wf-node.conn-out > .lod-chip { background: #0ea5e9; }
+    #node-overlay.dots .wf-node.conn-in > .lod-chip { background: #10b981; }
     
     /* Toolbar */
     .canvas-toolbar {
       position: absolute; top: 20px; left: 20px;
       background: var(--card-bg); border: 1px solid var(--border);
-      border-radius: 6px; display: flex; align-items: center;
+      border-radius: 6px; display: flex; align-items: stretch;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 50; pointer-events: auto;
+      overflow: hidden; max-width: calc(100% - 40px);
     }
-    .toolbar-btn { background: transparent; border: none; color: var(--text); padding: 8px 12px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--border); font-family: inherit; display: flex; align-items: center; gap: 6px;}
+    .toolbar-btn { background: transparent; border: none; color: var(--text); padding: 8px 12px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--border); font-family: inherit; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;}
+    .toolbar-btn:last-child { border-right: none; }
     .toolbar-btn:hover { background: rgba(255,255,255,0.05); }
+    .toolbar-hint { color: var(--text-muted); font-size: 11px; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .toolbar-btn:last-child { border-right: none; }
     
     /* Nodes */
@@ -353,8 +381,12 @@
           <button onclick="openFolderBrowser()" class="btn-primary" style="background: var(--sidebar); border: 1px solid var(--border); color: var(--text);">📂 Browse</button>
         </div>
         <div style="display: flex; gap: 4px; margin-bottom: 8px;">
-          <input type="text" id="config-src" class="input-sm" placeholder="src dir (e.g. ./src)" style="margin-bottom: 0;">
-          <input type="text" id="config-api" class="input-sm" placeholder="api dirs" style="margin-bottom: 0;">
+          <input type="text" id="config-src" class="input-sm" placeholder="src dir (default ./src)" style="margin-bottom: 0;">
+          <input type="text" id="config-api" class="input-sm" placeholder="api dirs (default api)" style="margin-bottom: 0;">
+        </div>
+        <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+          <input type="text" id="config-screens" class="input-sm" placeholder="screens dir (default screens)" style="margin-bottom: 0;">
+          <input type="text" id="config-types" class="input-sm" placeholder="types dir (default types)" style="margin-bottom: 0;">
         </div>
         <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">Recent Projects:</div>
         <div id="recent-projects-list" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; max-height: 120px; overflow-y: auto;"></div>
@@ -372,7 +404,7 @@
         <button class="toolbar-btn" onclick="window.location.href='/playground'" style="color: var(--primary); font-weight: bold; background: rgba(14, 165, 233, 0.1);">⚡ API Playground</button>
         <button class="toolbar-btn" onclick="resetZoom()">⌂ Zoom to Fit</button>
         <div class="toolbar-btn" id="zoom-label" style="cursor: default; min-width: 60px; text-align: center;">100%</div>
-        <div class="toolbar-btn" style="cursor: default; color: var(--text-muted); font-size: 11px;">drag a screen to move it · click to see its APIs</div>
+        <div class="toolbar-btn toolbar-hint" style="cursor: default;" title="Drag a screen to move it · Click a screen to see its APIs">✋ Drag to move · 👆 Click for APIs</div>
         <label class="toolbar-btn toggle-switch">
           <input type="checkbox" id="dark-mode-ui" checked onchange="init()"> Dark Mode UI
         </label>
@@ -418,6 +450,10 @@
     
     // Canvas State
     let scale = 0.5;
+    let minScale = 0.1;          // zoom-out floor (recomputed from fit-scale on render)
+    const MAX_SCALE = 3;         // zoom-in ceiling
+    const LOD_SCALE = 0.4;       // below this, wireframes swap to compact name chips
+    const DOT_SCALE = 0.16;      // below this, name chips collapse to small dots
     let translateX = 50;
     let translateY = 50;
     let isPanning = false;
@@ -447,7 +483,9 @@
     async function scanProject() {
       const projectPath = document.getElementById('project-path').value.trim();
       const srcDir = document.getElementById('config-src').value.trim() || './src';
-      const apiDirs = document.getElementById('config-api').value.trim() || 'api,srcekyc/api';
+      const apiDirs = document.getElementById('config-api').value.trim() || 'api';
+      const screensDir = document.getElementById('config-screens').value.trim() || 'screens';
+      const typesDir = document.getElementById('config-types').value.trim() || 'types';
 
       const statusEl = document.getElementById('scan-status');
       if (!projectPath) {
@@ -468,7 +506,7 @@
         const response = await fetch('/api/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectPath, srcDir, apiDirs, screensDir: 'screens', typesDir: 'types' })
+          body: JSON.stringify({ projectPath, srcDir, apiDirs, screensDir, typesDir })
         });
         const resData = await response.json();
         if (!resData.error) {
@@ -567,6 +605,21 @@
       }
       
       const screensToShow = data.screensMapping;
+
+      // No screens found -> almost always a config mismatch. Say so instead of
+      // rendering a blank canvas.
+      if (!screensToShow || screensToShow.length === 0) {
+        if (network) { network.destroy(); network = null; }
+        document.getElementById('node-overlay').innerHTML = `
+          <div style="pointer-events:auto; max-width:520px; margin:14vh auto 0; padding:24px; background:var(--card-bg); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:13px; line-height:1.7;">
+            <div style="font-size:15px; font-weight:700; margin-bottom:10px;">No screens found in this project</div>
+            The scan looked in <code style="color:var(--primary);">${escapeHtml((data.srcDir||'').split('/').pop())}/${escapeHtml(document.getElementById('config-screens').value.trim()||'screens')}</code> and found 0 screens.
+            Set the correct <b>src dir</b>, <b>screens dir</b>, <b>api dirs</b> (left panel) for this project's structure, then <b>Reload Canvas</b>.<br><br>
+            e.g. if screens live in <code>app/pages</code>: src = <code>./app</code>, screens dir = <code>pages</code>.
+          </div>`;
+        renderLayers(screensToShow || [], false);
+        return;
+      }
 
       // Lay screens out as a navigation flow (left -> right by reachability),
       // then hand the positions to the vis-network engine.
@@ -846,6 +899,7 @@
         div.className = 'wf-node';
         div.style.cssText = `position:absolute; left:0; top:0; width:${ARTBOARD_W}px; height:${ARTBOARD_H}px; transform-origin:0 0; will-change:transform;`;
         div.innerHTML = `
+          <div class="lod-chip">${escapeHtml(title)}</div>
           <div class="artboard-title">${escapeHtml(name)}</div>
           <div class="native-device ${isDark ? 'dark-mode' : ''}" style="width:100%; height:100%; display:flex; flex-direction:column;">
             <div class="native-statusbar"><span class="sb-time">9:41</span><span class="sb-right"><span class="sb-signal"></span><span class="sb-wifi"></span><span class="sb-batt"></span></span></div>
@@ -862,7 +916,36 @@
         if (params.nodes && params.nodes.length) selectNode('screen', params.nodes[0]);
         else closeInspector();
       });
-      network.once('afterDrawing', () => { network.fit({ animation: false }); });
+
+      // Clamp zoom so you can't shrink the whole graph into the void (UI would vanish).
+      // Floor is derived from the initial fit-scale (a hair looser for margin); ceil is fixed.
+      let zooming = false;
+      network.on('zoom', () => {
+        if (zooming) return;
+        const s = network.getScale();
+        let target = null;
+        if (s < minScale) target = minScale;
+        else if (s > MAX_SCALE) target = MAX_SCALE;
+        if (target !== null) {
+          zooming = true;
+          network.moveTo({ scale: target, position: network.getViewPosition() });
+          zooming = false;
+        }
+      });
+
+      network.once('afterDrawing', () => {
+        // Derive the zoom-out floor from a full fit (everything visible), with a
+        // little breathing room — this is the loosest zoom we allow.
+        network.fit({ animation: false });
+        minScale = Math.min(network.getScale() * 0.85, 0.2);
+        // But don't OPEN fully zoomed out (that lands on the unreadable dot overview).
+        // Start focused on the app's root screen at a readable scale so real
+        // wireframes are visible immediately; user can zoom out for the overview.
+        const root = data.navGraph && data.navGraph.root;
+        if (root && visNodes && visNodes.get(root)) {
+          network.focus(root, { scale: 0.6, offset: { x: -180, y: 0 }, animation: false });
+        }
+      });
     }
 
     // Keep the HTML wireframes aligned with their vis nodes on every redraw.
@@ -871,13 +954,24 @@
       const scale = network.getScale();
       const posMap = network.getPositions();
       if (zoomLabel) zoomLabel.textContent = Math.round(scale * 100) + '%';
+      // Below LOD_SCALE the scaled wireframes are too small to read — swap to chips;
+      // below DOT_SCALE even the chips overlap, so collapse them to dots.
+      const lod = scale < LOD_SCALE;
+      const dots = scale < DOT_SCALE;
+      const overlay = document.getElementById('node-overlay');
+      if (overlay) { overlay.classList.toggle('lod', lod); overlay.classList.toggle('dots', dots); }
       for (const id in overlayEls) {
         const p = posMap[id];
         if (!p) continue;
         const dom = network.canvasToDOM(p);
-        const left = dom.x - (ARTBOARD_W * scale) / 2;
-        const top = dom.y - (ARTBOARD_H * scale) / 2;
-        overlayEls[id].style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+        if (lod) {
+          // Chip is centered on the node via its own translate(-50%,-50%); no scaling.
+          overlayEls[id].style.transform = `translate(${dom.x}px, ${dom.y}px)`;
+        } else {
+          const left = dom.x - (ARTBOARD_W * scale) / 2;
+          const top = dom.y - (ARTBOARD_H * scale) / 2;
+          overlayEls[id].style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+        }
       }
     }
 
