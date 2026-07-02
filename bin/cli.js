@@ -288,6 +288,22 @@ async function findAvailablePort(startPort) {
       }
     }
 
+    // Does a route pattern with path params match a concrete request path?
+    // Supports the parser's `:param`, express-style `:id`, and OpenAPI `{id}` — each
+    // placeholder matches exactly one path segment. e.g. /user/{id}/post ~ /user/123/post.
+    function endpointHasParams(pattern) {
+      return typeof pattern === 'string' && (pattern.includes(':') || pattern.includes('{'));
+    }
+    function endpointMatchesPath(pattern, path) {
+      if (!endpointHasParams(pattern)) return false; // no params → exact match handles it
+      const source = '^' + pattern.split('/').map((seg) =>
+        (/^:.+/.test(seg) || /^\{.+\}$/.test(seg))
+          ? '[^/]+'
+          : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      ).join('/') + '$';
+      try { return new RegExp(source).test(path); } catch (e) { return false; }
+    }
+
     const server = http.createServer((req, res) => {
       // Reject cross-origin / rebinding access before doing any work.
       // if (!isLocalHost(req.headers.host)) {
@@ -544,6 +560,8 @@ async function findAvailablePort(startPort) {
         
         let mockPath = parsedUrl.pathname.replace('/mock', '');
         
+        // Exact match first (most specific); then param-pattern match so endpoints
+        // like /user/{id}/post (or the parser's /user/:param/post) serve real values.
         let matchedApi = null;
         for (const key in currentMockApiRegistry) {
            const api = currentMockApiRegistry[key];
@@ -552,9 +570,27 @@ async function findAvailablePort(startPort) {
               break;
            }
         }
-        
-        const custom = mockCustomConfigs[mockPath];
-        const hasMock = matchedApi && (custom || matchedApi.mockResJson != null);
+        if (!matchedApi) {
+           for (const key in currentMockApiRegistry) {
+              const api = currentMockApiRegistry[key];
+              if (api.endpoint && endpointMatchesPath(api.endpoint, mockPath)) {
+                 matchedApi = api;
+                 break;
+              }
+           }
+        }
+
+        // Custom config: exact key first, else the first custom pattern that matches.
+        let custom = mockCustomConfigs[mockPath];
+        if (!custom) {
+           const patternKey = Object.keys(mockCustomConfigs).find(
+              (k) => endpointMatchesPath(k, mockPath)
+           );
+           if (patternKey) custom = mockCustomConfigs[patternKey];
+        }
+        // A saved/user-created custom config can stand on its own (no code match needed),
+        // so mocks the user invents in the playground are served too.
+        const hasMock = custom || (matchedApi && matchedApi.mockResJson != null);
 
         if (hasMock) {
            try {
@@ -575,7 +611,7 @@ async function findAvailablePort(startPort) {
 
               // Otherwise serve the type-resolved mock the parser pre-computed.
               if (mockResponse === undefined) {
-                 mockResponse = matchedApi.mockResJson != null ? matchedApi.mockResJson : {};
+                 mockResponse = (matchedApi && matchedApi.mockResJson != null) ? matchedApi.mockResJson : {};
               }
 
               res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
